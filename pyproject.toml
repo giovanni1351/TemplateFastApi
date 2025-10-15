@@ -1,0 +1,97 @@
+[project]
+name = "fastapitemplate"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiosqlite>=0.21.0",
+    "alembic>=1.17.0",
+    "asyncpg>=0.30.0",
+    "bcrypt>=5.0.0",
+    "fastapi>=0.119.0",
+    "passlib>=1.7.4",
+    "pwdlib[argon2]>=0.2.1",
+    "pydantic-settings>=2.11.0",
+    "pyjwt>=2.10.1",
+    "pylogkit",
+    "python-multipart>=0.0.20",
+    "sqlmodel>=0.0.27",
+    "tzdata>=2025.2",
+    "uvicorn>=0.37.0",
+]
+
+
+[tool.uv.sources]
+pylogkit = { git = "https://github.com/luizomf/pylogkit" }
+
+[tool.pyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.13"
+include = ["src", 'tests']
+exclude = [
+    "**/venv",
+    "**/.venv",
+    "**/env",
+    "**/.env",
+    "**/node_modules",
+    "**/__pycache__",
+]
+venv = ".venv"
+venvPath = "."
+executionEnvironments = [{ root = "src" }]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+fix = true
+show-fixes = true
+indent-width = 4
+exclude = ["venv", ".venv", "env", ".env", "node_modules", "__pycache__"]
+
+[tool.ruff.lint]
+select = [
+    "ASYNC",
+    "A",
+    "ANN",
+    "B",
+    "BLE",
+    "C4",
+    "C90",
+    "COM",
+    "E",
+    "EM",
+    "ERA",
+    "EXE",
+    "F",
+    "FBT",
+    "FIX",
+    "I",
+    "ICN",
+    "ISC",
+    "Q",
+    "RET",
+    "RSE",
+    "S",
+    "SIM",
+    "SLF",
+    "T10",
+    "T20",
+    "TC",
+    "TD",
+    "TRY",
+    "UP",
+    "W",
+    "YTT",
+    "RUF",
+    "N",
+]
+ignore = ["T201", "COM812"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ANN201", "S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

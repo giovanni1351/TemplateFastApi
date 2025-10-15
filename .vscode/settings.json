@@ -1,0 +1,46 @@
+{
+  "git.ignoreLimitWarning": true,
+  "css.validate": true,
+  "less.validate": false,
+  "scss.validate": false,
+  "files.exclude": {
+    "**/*.pyc": true,
+    "**/__pycache__": true,
+    "**/.pytest_cache": true
+  },
+  "tailwindCSS.includeLanguages": {
+    "plaintext": "html"
+  },
+  "tailwindCSS.experimental.classRegex": [
+    "cva\\(([^)]*)\\)",
+    "[\"'`]([^\"'`]*).*?[\"'`]"
+  ],
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact",
+    "typescript": "typescriptreact"
+  },
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "[html]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+  "[jsx]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+  "[javascriptreact]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+  "[typescriptreact]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+
+  "python.languageServer": "None"
+}

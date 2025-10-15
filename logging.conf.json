@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "disable_existing_loggers": false,
+  "formatters": {
+    "file": {
+      "format": "%(levelname)s|%(name)s|%(asctime)s|%(message)s|%(filename)s|%(lineno)d|%(funcName)s|%(module)s|%(process)d|%(processName)s|%(thread)d|%(threadName)s|%(taskName)s"
+    },
+    "json": {
+      "()": "pylogkit.JSONLogFormatter",
+      "include_keys": [
+        "created",
+        "message",
+        "levelname",
+        "name",
+        "filename",
+        "module",
+        "exc_info",
+        "lineno",
+        "threadName",
+        "processName",
+        "taskName",
+        "args",
+        "context"
+      ]
+    },
+    "console": {
+      "format": "%(message)s",
+      "datefmt": "[%X]"
+    }
+  },
+  "filters": {
+    "max_level_info": {
+      "()": "pylogkit.MaxLevelFilter",
+      "max_level": "INFO"
+    }
+  },
+  "handlers": {
+    "queue": {
+      "class": "logging.handlers.QueueHandler",
+      "handlers": [
+        "file"
+      ],
+      "respect_handler_level": true
+    },
+    "console": {
+      "()": "pylogkit.MyRichHandler",
+      "formatter": "console",
+      "rich_tracebacks": false,
+      "tracebacks_show_locals": false,
+      "show_time": true,
+      "show_level": true,
+      "omit_repeated_times": false,
+      "markup": false,
+      "enable_link_path": true,
+      "show_path": true,
+      "file": "stdout",
+      "level": "DEBUG"
+    },
+    "file": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "formatter": "json",
+      "filename": "logs/log.jsonl",
+      "maxBytes": 5242880,
+      "backupCount": 5,
+      "encoding": "utf-8"
+    }
+  },
+  "root": {
+    "handlers": [
+      "console",
+      "queue"
+    ]
+  }
+}
