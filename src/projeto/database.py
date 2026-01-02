@@ -8,7 +8,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 
 def generate_connection_string() -> str:
-    if 1 == 1:
+    if SETTINGS.SQLITE_DEV == 1:
         return "sqlite+aiosqlite:///database.db"
     return (
         f"postgresql+asyncpg://{SETTINGS.DB_USER}:{quote_plus(SETTINGS.DB_PASSWORD)}@{SETTINGS.DB_HOST}:"
