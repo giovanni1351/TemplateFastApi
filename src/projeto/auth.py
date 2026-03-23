@@ -8,7 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jwt import InvalidTokenError
 from pwdlib import PasswordHash
 from schemas.token import TokenData
-from schemas.user import User
+from schemas.user import User, UserTypes
 from settings import LOGGER, SETTINGS
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -37,28 +37,34 @@ async def get_current_user(
             SETTINGS.SECRET_KEY,  # type: ignore
             algorithms=[SETTINGS.ALGORITHM],  # type: ignore
         )
-        username = payload.get("sub")
-        if username is None:
+        email = payload.get("sub")
+        if email is None:
             raise credentials_exception
-        token_data = TokenData(username=username)
+        token_data = TokenData(email=email)
     except InvalidTokenError as e:
         raise credentials_exception from e
     user = (
-        await session.exec(select(User).where(User.username == token_data.username))
+        await session.exec(select(User).where(User.email == token_data.email))
     ).first()
     if user is None:
         raise credentials_exception
     return user
 
 
-async def get_current_admin(
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> User:
-    if not current_user.is_admin:
+class UserByRole:
+    def __init__(self, roles: list[UserTypes]) -> None:
+        self.roles: list[UserTypes] = roles
+
+    def __call__(self, user: Annotated[User, Depends(get_current_user)]) -> User:
+        if user.is_admin:
+            return user
+        if user.user_type in self.roles:
+            return user
+
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not admin"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Você não tem acesso a este recurso",
         )
-    return current_user
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -73,7 +79,7 @@ async def authenticate_user(
     username: str, password: str, session: AsyncSession
 ) -> User | Literal[False]:
     LOGGER.info(f"Autenticando usuário {username}")
-    user = (await session.exec(select(User).where(User.username == username))).first()
+    user = (await session.exec(select(User).where(User.email == username))).first()
     if not user:
         return False
     if not verify_password(password, user.password):
