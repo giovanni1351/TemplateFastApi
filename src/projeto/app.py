@@ -14,14 +14,14 @@ def custom_openapi() -> dict[str, Any]:
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema: dict[str, Any] = get_openapi(
-        title="Exata API Example",
+        title="API Example",
         version="0.2.132",
-        summary="Sistema exemplo Exata de api em FastApi ",
-        description="O acesso desta api é restrito para usuarios da exata",
+        summary="Sistema de api em FastApi ",
+        description="O acesso desta api é restrito",
         routes=app.routes,
     )
     openapi_schema["info"]["x-logo"] = {
-        "url": "https://exata.dev/storage/img/exata_BLACK_NO_IT.png"
+        "url": "https://static.vecteezy.com/system/resources/previews/011/063/921/non_2x/example-button-speech-bubble-example-colorful-web-banner-illustration-vector.jpg"
     }
     app.openapi_schema = openapi_schema
     return app.openapi_schema
