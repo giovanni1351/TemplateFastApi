@@ -2,12 +2,15 @@ from typing import Any, Literal
 
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
-from routes import token, user
+from routes import livro, pagina, token, user
 from uvicorn import run
 
 app = FastAPI()
 app.include_router(user.router)
 app.include_router(token.router)
+app.include_router(livro.router)
+
+app.include_router(pagina.router)
 
 
 def custom_openapi() -> dict[str, Any]:

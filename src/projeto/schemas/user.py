@@ -2,7 +2,6 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel
 from sqlmodel import Field, SQLModel  # pyright: ignore[reportUnknownVariableType]
 
 
@@ -10,15 +9,6 @@ class UserTypes(Enum):
     ASSINANTE = "ASSINANTE"
     ASSINANTE_PLUS = "ASSINANTE_PLUS"
     COMUM = "COMUM"
-
-
-class ForgotPasswordRequest(BaseModel):
-    email: str
-
-
-class ResetPasswordRequest(BaseModel):
-    token: str
-    new_password: str
 
 
 class UserCreate(SQLModel):
