@@ -3,6 +3,7 @@ from urllib.parse import quote_plus
 
 from fastapi import Depends
 from settings import LOGGER, SETTINGS
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -17,6 +18,11 @@ def generate_connection_string() -> str:
 
 
 async_engine: AsyncEngine = create_async_engine(
+    generate_connection_string(),
+    pool_recycle=450,
+)
+
+engine: Engine = create_engine(
     generate_connection_string(),
     pool_recycle=450,
 )

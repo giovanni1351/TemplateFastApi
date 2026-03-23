@@ -1,13 +1,22 @@
 from typing import Any, Literal
 
+from admin import UserAdmin, backend_auth
+from database import async_engine
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from routes import token, user
+from sqladmin import Admin
 from uvicorn import run
 
 app = FastAPI()
+
 app.include_router(user.router)
 app.include_router(token.router)
+
+admin = Admin(
+    app, async_engine, authentication_backend=backend_auth, title="Administração"
+)
+admin.add_view(UserAdmin)
 
 
 def custom_openapi() -> dict[str, Any]:
