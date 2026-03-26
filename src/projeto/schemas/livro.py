@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from pydantic import BaseModel
 from sqlmodel import (
     Field,  # type: ignore
     Relationship,
@@ -26,3 +27,12 @@ class Livro(LivroCreate, table=True):
     updated_at: datetime | None = Field(default=None)
     deleted_at: datetime | None = Field(default=None)
     paginas: list["Pagina"] = Relationship(back_populates="livro")  # pyright: ignore[reportUnknownVariableType]
+
+
+class LivroRead(BaseModel):
+    id: UUID
+    nome: str
+    created_at: datetime
+    updated_at: datetime | None
+    deleted_at: datetime | None
+    paginas: list["Pagina"]  # pyright: ignore[reportUnknownVariableType]

@@ -27,3 +27,13 @@ class Pagina(PaginaCreate, table=True):
     deleted_at: datetime | None = Field(default=None)
 
     livro: "Livro" = Relationship(back_populates="paginas")  # pyright: ignore[reportUnknownVariableType]
+
+
+class PaginaRead(SQLModel):
+    id: UUID
+    nome: str
+    numero: int
+    created_at: datetime
+    updated_at: datetime | None
+    deleted_at: datetime | None
+    livro: "Livro"  # pyright: ignore[reportUnknownVariableType]
