@@ -91,7 +91,6 @@ async def get_user_by_id(
         User, Depends(UserByRole([]))
     ],  # somente admin pode ver outros usuarios
 ) -> User:
-    print(user_id)
     crud = CRUDGeneric(User, session)
     return await crud.read(user_id)
 

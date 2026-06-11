@@ -1,0 +1,96 @@
+{% macro render_icon(icon, size='w-5 h-5', text_size='text-base') %}
+{% if icon is none %}
+<svg class="{{ size }} text-current opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+</svg>
+{% elif icon.startswith('http') or icon.startswith('/') %}
+<img src="{{ icon }}" class="{{ size }} flex-shrink-0" alt="">
+{% elif icon.startswith('fa-') or ' ' in icon %}
+<i class="{{ icon }} {{ text_size }} flex-shrink-0 w-5 text-center"></i>
+{% else %}
+<span class="{{ text_size }} flex-shrink-0 w-5 text-center inline-block">{{ icon }}</span>
+{% endif %}
+{% endmacro %}
+
+{% macro menu_category(menu, request) %}
+{% if menu.is_visible(request) and menu.is_accessible(request) %}
+<div class="mb-2">
+    <button onclick="this.nextElementSibling.classList.toggle('hidden')" class="sidebar-category w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-white/10 transition-colors text-left" title="{{ menu.display_name }}">
+        <span class="flex items-center gap-3 flex-shrink-0">
+            {{ render_icon(menu.icon, 'w-5 h-5', 'text-lg') }}
+            <span class="sidebar-menu-text text-sm font-medium text-white/90">{{ menu.display_name }}</span>
+        </span>
+        <svg class="sidebar-menu-text w-4 h-4 text-white/50 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+    </button>
+    <div class="sidebar-category-children ml-4 mt-1 space-y-1 {% if not menu.is_active(request) %}hidden{% endif %}">
+        {% for sub_menu in menu.children %}
+        {% if sub_menu.is_visible(request) and sub_menu.is_accessible(request) %}
+        <a href="{{ sub_menu.url(request) }}" class="flex items-center gap-3 px-4 py-2 rounded-lg transition-colors {% if sub_menu.is_active(request) %}bg-primary text-white{% else %}text-white/70 hover:bg-white/10 hover:text-white{% endif %}" title="{{ sub_menu.display_name }}">
+            {{ render_icon(sub_menu.icon, 'w-5 h-5', 'text-lg') }}
+            <span class="sidebar-menu-text text-sm">{{ sub_menu.display_name }}</span>
+        </a>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro menu_item(menu, request) %}
+{% if menu.is_visible(request) and menu.is_accessible(request) %}
+<a href="{{ menu.url(request) }}" class="sidebar-item flex items-center gap-3 px-4 py-2 rounded-lg transition-colors {% if menu.is_active(request) %}bg-primary text-white{% else %}text-white/70 hover:bg-white/10 hover:text-white{% endif %}" title="{{ menu.display_name }}">
+    {{ render_icon(menu.icon, 'w-5 h-5', 'text-lg') }}
+    <span class="sidebar-menu-text text-sm font-medium">{{ menu.display_name }}</span>
+</a>
+{% endif %}
+{% endmacro %}
+
+{% macro display_menu(menu, request) %}
+<div class="space-y-1">
+    {% for item in menu.items %}
+    {% if item.type_ == "View" %}
+    {{ menu_item(item, request) }}
+    {% elif item.type_ == "Category" %}
+    {{ menu_category(item, request) }}
+    {% endif %}
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro render_field(field, kwargs={}) %}
+<div class="mb-4">
+    <label class="block text-sm font-medium text-gray-700 mb-2">
+        {{ field.label.text }}
+        {% if field.flags.required %}<span class="text-red-500">*</span>{% endif %}
+    </label>
+    <div>
+        {% if field.errors %}
+        {{ field(class_="w-full px-4 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500") }}
+        {% for error in field.errors %}
+        <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+        {% endfor %}
+        {% else %}
+        {{ field(class_="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary") }}
+        {% endif %}
+        {% if field.description %}
+        <p class="mt-1 text-sm text-gray-500">{{ field.description }}</p>
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
+
+{% macro render_form_fields(form, form_opts=None) %}
+{% if form.hidden_tag is defined %}
+{{ form.hidden_tag() }}
+{% else %}
+{% for f in form if f.widget.input_type == 'hidden' %}
+{{ f }}
+{% endfor %}
+{% endif %}
+
+{% for f in form if f.widget.input_type != 'hidden' %}
+{{ render_field(f, kwargs) }}
+{% endfor %}
+{% endmacro %}

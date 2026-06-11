@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ admin_config.nome_sistema }} - {{ admin.title }}</title>
+    <link rel="stylesheet" href="{{ url_for('admin:statics', path='css/fontawesome.min.css') }}">
+    <script src="{{ admin_config.tailwind_cdn }}"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '{{ admin_config.cor_primaria }}',
+                        secondary: '{{ admin_config.cor_secundaria }}',
+                        sidebar: '{{ admin_config.cor_sidebar }}',
+                        accent: '{{ admin_config.cor_destaque }}',
+                        bgmain: '{{ admin_config.cor_fundo }}',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-bgmain min-h-screen">
+    {% block body %}
+    <main>
+        {% block main %}{% endblock %}
+    </main>
+    {% endblock %}
+    {% block tail %}{% endblock %}
+</body>
+</html>

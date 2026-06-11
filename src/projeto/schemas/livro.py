@@ -28,6 +28,9 @@ class Livro(LivroCreate, table=True):
     deleted_at: datetime | None = Field(default=None)
     paginas: list["Pagina"] = Relationship(back_populates="livro")  # pyright: ignore[reportUnknownVariableType]
 
+    def __str__(self) -> str:
+        return f"{self.nome= } {self.id= }"
+
 
 class LivroRead(BaseModel):
     id: UUID

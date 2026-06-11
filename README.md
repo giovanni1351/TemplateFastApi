@@ -1,111 +1,403 @@
-# API FastAPI template
-Esse template tem o objetivo de ser o padrão inicia
-Ela ja contem tudo que é necessário para a criação de uma aplicação com
-sistema de usuarios e pacotes ja mapeados para a criação dos modelos
+# FastAPI Template
 
-# UV
-Esse projeto é criado utilizando o gerenciador de pacotes UV
-tudo que é feito aqui em questão de pacotes é adicionado pelo uv
-ele substitui o pip e o pyenv, ela pode gerenciar as versões do python e as 
-dependencias, tudo em cima de um arquivo chamado [pyproject.toml](pyproject.toml)
-nesse arquivo contem as configurações dos linters (ruff e pyright)
-Alem de versionar corretamente as dependencias, então não é necessário se preocupar
-muito com isso, ela ja vai criar uma arvore de dependencia para instalar em outras
-maquinas e ja baixar os modulos corretamente
-## Como rodar o projeto
-Para rodar o projeto
-Clone o repositório
-e de um `uv sync`
-para isso é necessário instalar o uv
+Template completo para APIs com FastAPI, incluindo sistema de autenticação, painel administrativo personalizado e banco de dados com SQLModel.
 
-- windows `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex`
-- linux e mac `curl -LsSf https://astral.sh/uv/install.sh | sh`
+## Stack Tecnológica
 
-depois de instalar e sincronizar o ambiente com o sync, vc vai ver
-que foi gerado um .venv, é o ambiente virtual, onde vai conter todas
-as dependencias, assim como o `python -m venv .venv` faz
-porem se vc está habituado com esse metodo padrão usando o próprio python
-Ele vai criar com base no python que está na sua maquina configurado.
-Com o uv, ele vai criar o repositório com oq temos em base no pyproject
-caso vc n tenha a versão do python, ele vai instalar para vc e junto disso
-vai baixar as dependencias e suas subdependencias tambem, padronizando 
-para todo mundo 
-que for mecher no projeto
+- **Framework**: FastAPI + Starlette + Pydantic
+- **ORM**: SQLModel (SQLAlchemy + Pydantic)
+- **Admin**: SQLAdmin com tema Tailwind CSS customizado
+- **Banco de Dados**: PostgreSQL (produção) / SQLite (desenvolvimento)
+- **Migrações**: Alembic
+- **Gerenciador de Pacotes**: UV
+- **Linters**: Ruff + Pyright
+- **Servidor**: Uvicorn
 
-depois de criar o ambiente, vc ja pode rodar a aplicação, tenha em mente
-que o fastapi é um framework construido em cima do starlette e pydantic
-tendo isso em mente, o servidor é iniciado usando o [uvicorn](https://uvicorn.dev/), ele é quem
-realmente vai criar o serviço de api, onde vai disponibilizar a aplicação criada 
-pelo starlette
+## Como Rodar
 
-Então no final, o fastapi vai apenas usar as validações de tipo do [pydantic](https://docs.pydantic.dev/latest/) 
-que usa o type hints do python, então é interessantes vc ter uma noção
-de como funciona a tipagem no python e os typehints, pois o fastapi
-é fortemente construido em cima disso
+### 1. Instale o UV
 
-A vantagem de utilizar as tipagens é os linters, onde vai te mostrar os 
-possiveis erros que podem acontecer em relação aos tipos.
-Então, se vc criar uma função que recebe um inteiro e vc chama passando
-uma string, o linter vai te avisar desse erro. Para o desenvolvedor
-é muito bom, pois vc consegue ja garantir que esse tipo de erro simples
-não acontecerá!
+**Windows (PowerShell):**
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
 
-# O que o fastapi faz para você?
+**Linux/macOS:**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
-Ele é um framework/microframework, e ele te da total liberdade para fazer 
-oq vc quiser, ou seja, no final, ele só vai te dar a capacidade de criar
-as rotas e especificar a entrada e saida, e tudo que é questão de validação
-de tipos e serialização, ele vai cuidadar para voce, utilizando o pydantic
+### 2. Clone e instale as dependências
 
-Ok, mas e agora? oq eu faço com isso?
-Por isso que criamos esse repositório com esse template/exemplo, onde ja 
-criamos para você um padrão, onde temos SQLModel uma ORM (object 
-relational mapping) e um sistema de autenticação e criação de usuarios!
+```bash
+git clone <repositorio>
+cd FastAPITemplate
+uv sync
+```
 
-# SQLModel
+O UV cria automaticamente o ambiente virtual `.venv` e instala todas as dependências definidas no `pyproject.toml`.
 
-Essa é a orm que escolhemos, por conta das facilidades que ela tras
-ela usa o pydantic basemodel, ou seja, ela funciona como um validador de 
-dados tambem, e tambem usa o sqlalchemy (ESTADO DA ARTE DE ORM NO Python)
+### 3. Configure as variáveis de ambiente
 
-Então, ele funciona assim como o BaseModel do pydantic, mas ele pode 
-receber um parametro de table=true, que vai dizer que aquele modelo é uma 
-tabela no banco de dados
+Copie `.env.example` para `.env` e ajuste os valores:
 
-No final, ela vai traduzir para um modelo do sqlalchemy, então, vc pode 
-utilizar as facilidades de criação de consultas usando sqlalchemy no sqlmodel
-A vantagem disso, é que tudo fica padronizado, se vc fosse usar o pydantic
-e sqlalchemy, vc teria um modelo do sqlalchemy e do pydantic que 
-representariam as mesmas inoformações, dessa forma, conseguimos deixar
-o código mais limpo e intendivel
+```bash
+cp .env.example .env
+```
 
-# Alembic
+**Variáveis principais:**
 
-Voce provavelmente vai ter que atualizar o modelo do banco de dados em 
-alugum momento, o alembic está aqui para isso. Ele vai gerencias as migrações
-O alembic por natureza é feito para funcionar diretamente com sqlalchemy
-o problema é que estamos usando o sqlmodel, e para funcionar é necessário
-fazer algumas mudanças em como o alembic funciona. Mas não se preocupe, 
-ja deixamos isso pronto para vc. Vc pode apenas usar os comando do 
-arquivo de suporte que deixamos para vc em [COMANDOS_ALEMBIC](COMANDOS_ALEMBIC.md)
+| Variável | Descrição | Padrão |
+|----------|-----------|--------|
+| `SQLITE_DEV` | Use `1` para SQLite local, `0` para PostgreSQL | `0` |
+| `SECRET_KEY` | Chave para JWT | - |
+| `ALGORITHM` | Algoritmo JWT | `HS256` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Expiração do token | `2500` |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_DATABASE` | Configurações PostgreSQL | - |
 
-As migrações ficam armazenadas na pasta [migrations](src/projeto/migrations/), lá tem um arquivo que
-é utilizado para o alembic criar as modificações, seria uma especie de 
-template. ja arrumamos para funcionarcom o sqlmodel. o env.py, é o que 
-realmente vai fazer a configuração, ja arrumamos tambem, para ela buscar 
-da mesma função que gera a conexão com o banco da aplicação, então basta 
-configurar no .env, que ela ja vai funcionar para a aplicação e alembic.
+### 4. Execute as migrações
 
-# Banco de Dados
+```bash
+uv run alembic upgrade head
+```
 
-Certo, para criar as tabelas do banco de dados, é necessário utilizar o 
-alembic, ele será o encarregado de criar todas as tabelas e relações,
-que vc descreveu nos modelos que vc criou usando o sqlmodel, por isso
-é necessário um conhecimento de como modelar o banco com o sqlmodel.
-Te garanto que é tranquilo. Ele está aqui pois é um facilitador
+### 5. Inicie o servidor
 
-Voce pode acessar a documentação do [sqlmodel](https://sqlmodel.tiangolo.com/), lá vai ter passo a passo 
-de como vai funcionar para a criação das tabelas, e relações
+```bash
+uv run python src/projeto/app.py
+```
 
-Para configurar o banco de dados, é necessário preencher todas as variaveis
-de ambiente descritas no 
+Acesse:
+- **API**: http://localhost:8000/docs
+- **Admin**: http://localhost:8000/admin
+- **Health**: http://localhost:8000/heath
+
+## Estrutura do Projeto
+
+```
+src/projeto/
+├── admin.py              # Views do painel admin (ModelViews)
+├── admin_config.py       # Configurações visuais do admin
+├── app.py                # Aplicação FastAPI principal
+├── auth.py               # Autenticação e JWT
+├── database.py           # Conexão com banco de dados
+├── settings.py           # Configurações via .env
+├── middleware/
+│   └── csp.py            # Middleware Content Security Policy
+├── migrations/           # Migrações Alembic
+├── routes/               # Rotas da API
+├── schemas/              # Modelos SQLModel
+├── static/               # Arquivos estáticos (ícones, imagens)
+│   └── icons/
+├── templates/
+│   └── sqladmin/         # Templates customizados do admin
+│       ├── base.html
+│       ├── layout.html
+│       ├── login.html
+│       ├── index.html
+│       ├── list.html
+│       ├── create.html
+│       ├── edit.html
+│       ├── details.html
+│       ├── error.html
+│       ├── _macros.html
+│       └── modals/
+└── utils/
+```
+
+## Painel Administrativo
+
+O admin é construído com **SQLAdmin** e totalmente personalizado com **Tailwind CSS** via CDN.
+
+### Configurações Visuais
+
+Edite `src/projeto/admin_config.py` para personalizar:
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class AdminConfig:
+    nome_sistema: str = "Administração"      # Nome exibido na sidebar
+    nome_empresa: str = "Empresa LTDA"       # Subtítulo na sidebar
+    logo_url: str | None = None              # URL ou caminho da logo
+    cor_primaria: str = "#3b82f6"            # Azul (botões, links)
+    cor_secundaria: str = "#64748b"          # Cinza
+    cor_sidebar: str = "#1e293b"             # Fundo da sidebar
+    cor_destaque: str = "#10b981"            # Verde (edição)
+    cor_fundo: str = "#f8fafc"               # Fundo da página
+    tailwind_cdn: str = "https://cdn.tailwindcss.com"
+
+ADMIN_CONFIG = AdminConfig()
+```
+
+**Exemplo com logo local:**
+```python
+ADMIN_CONFIG = AdminConfig(
+    nome_sistema="Meu Sistema",
+    nome_empresa="Minha Empresa",
+    logo_url="/static/logo.png",  # Coloque em src/projeto/static/
+    cor_primaria="#8b5cf6",       # Roxo
+)
+```
+
+### Criando Views do Admin
+
+Edite `src/projeto/admin.py` para adicionar modelos ao painel:
+
+```python
+from sqladmin import ModelView
+from schemas.meu_modelo import MeuModelo
+
+class MeuModeloAdmin(ModelView, model=MeuModelo):
+    column_list = [MeuModelo.nome, MeuModelo.descricao]
+    can_create = True
+    card_style = True                    # Exibe como cards (False = tabela)
+    icon = "fa-solid fa-box"            # Ícone na sidebar
+```
+
+Depois registre em `app.py`:
+```python
+from admin import MeuModeloAdmin
+admin.add_view(MeuModeloAdmin)
+```
+
+### Ícones Customizáveis
+
+O atributo `icon` aceita múltiplos formatos:
+
+```python
+class ExemploAdmin(ModelView, model=Exemplo):
+    # Font Awesome (já incluído no SQLAdmin)
+    icon = "fa-solid fa-users"
+
+    # Emoji
+    icon = "📦"
+
+    # Arquivo local (coloque em src/projeto/static/icons/)
+    icon = "/static/icons/book.svg"
+
+    # URL externa
+    icon = "https://example.com/icon.png"
+
+    # Sem ícone (usa placeholder padrão)
+    icon = None
+```
+
+### Modo Card vs Tabela
+
+Use `card_style = True` para exibir registros como cards:
+
+```python
+class ProdutoAdmin(ModelView, model=Produto):
+    column_list = [Produto.nome, Produto.preco]
+    card_style = True   # Cards (grid responsivo)
+
+class LogAdmin(ModelView, model=Log):
+    column_list = [Log.data, Log.mensagem]
+    card_style = False  # Tabela (padrão)
+```
+
+O primeiro campo do `column_list` aparece em destaque nos cards.
+
+### Criação de Usuários com Hash de Senha
+
+O `UserAdmin` já está configurado para criar usuários com senha hasheada corretamente:
+
+```python
+class UserAdmin(ModelView, model=User):
+    column_list = [User.nome, User.sobrenome, User.email, User.is_admin]
+    column_details_exclude_list = [User.password]  # Oculta senha nos detalhes
+    can_create = True
+    card_style = True
+    icon = "fa-solid fa-users"
+
+    async def insert_model(self, request: Request, data: dict[str, Any]) -> User:
+        if "password" in data and data["password"]:
+            data["password"] = get_password_hash(data["password"])
+        return await super().insert_model(request, data)
+
+    async def update_model(
+        self, request: Request, pk: Any, data: dict[str, Any]
+    ) -> User:
+        if "password" in data:
+            if data["password"]:
+                data["password"] = get_password_hash(data["password"])
+            else:
+                data.pop("password")  # Não atualiza se campo vazio
+        return await super().update_model(request, pk, data)
+```
+
+**Funcionalidades:**
+- ✅ Senha hasheada automaticamente ao criar usuário (Argon2)
+- ✅ Senha hasheada ao atualizar (apenas se fornecida)
+- ✅ Campo de senha oculto na listagem e detalhes
+- ✅ Se deixar senha em branco na edição, mantém a senha atual
+
+**Como usar:**
+1. Acesse `/admin`
+2. Clique em "Usuários"
+3. Clique em "+ Novo User"
+4. Preencha nome, sobrenome, email e senha
+5. Marque "Is admin" se for administrador
+6. Clique em "Salvar"
+
+### Responsividade
+
+Todos os templates são responsivos:
+- **Mobile**: Sidebar oculta, botão hamburger no header
+- **Tablet**: Grid adaptativo
+- **Desktop**: Sidebar sempre visível, pode ser minimizada
+
+### Sidebar Colapsável
+
+No desktop, clique no botão de seta dupla (◀◀) na sidebar para minimizar:
+- Mostra apenas ícones
+- Estado salvo em `localStorage`
+- Tooltips aparecem ao passar o mouse
+
+No mobile, o botão hamburger abre/fecha a sidebar com overlay.
+
+### Middleware CSP
+
+O `CSPMiddleware` em `src/projeto/middleware/csp.py` configura headers de segurança para permitir o Tailwind CDN:
+
+```python
+Content-Security-Policy:
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com;
+    style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;
+    img-src 'self' data: https:;
+    font-src 'self' data:;
+```
+
+## Desenvolvimento
+
+### Adicionando Novas Rotas
+
+1. Crie `src/projeto/routes/minha_rota.py`:
+```python
+from fastapi import APIRouter
+from database import AsyncSessionDep
+
+router = APIRouter(prefix="/minha-rota", tags=["Minha Rota"])
+
+@router.get("/")
+async def listar(session: AsyncSessionDep):
+    # sua lógica
+    pass
+```
+
+2. Registre em `app.py`:
+```python
+from routes import minha_rota
+app.include_router(minha_rota.router)
+```
+
+### Criando Modelos
+
+Use SQLModel em `src/projeto/schemas/`:
+
+```python
+from sqlmodel import SQLModel, Field
+
+class Produto(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    nome: str = Field(max_length=100)
+    preco: float
+```
+
+### Gerando Migrações
+
+```bash
+# Criar migração automática
+uv run alembic revision --autogenerate -m "descrição da mudança"
+
+# Aplicar migrações
+uv run alembic upgrade head
+
+# Reverter última migração
+uv run alembic downgrade -1
+```
+
+Veja mais comandos em [COMANDOS_ALEMBIC.md](COMANDOS_ALEMBIC.md).
+
+### Linting e Formatação
+
+```bash
+# Verificar erros
+uv run ruff check src/
+
+# Corrigir automaticamente
+uv run ruff check src/ --fix
+
+# Formatar código
+uv run ruff format src/
+
+# Verificar tipos
+uv run pyright
+```
+
+## SQLModel
+
+SQLModel combina Pydantic + SQLAlchemy em uma única classe:
+
+```python
+from sqlmodel import SQLModel, Field, Relationship
+
+class Autor(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    nome: str
+    livros: list["Livro"] = Relationship(back_populates="autor")
+
+class Livro(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    titulo: str
+    autor_id: int | None = Field(default=None, foreign_key="autor.id")
+    autor: Autor | None = Relationship(back_populates="livros")
+```
+
+**Vantagens:**
+- Validação de dados (Pydantic)
+- ORM completo (SQLAlchemy)
+- Uma única classe para modelo e schema
+- Type hints funcionam com linters
+
+## Autenticação
+
+O sistema usa JWT com autenticação OAuth2:
+
+1. **Login**: `POST /token` com `username` e `password`
+2. **Token**: Retorna `access_token` para usar em requests
+3. **Uso**: Header `Authorization: Bearer <token>`
+
+O admin usa autenticação separada via sessão, verificando o campo `is_admin` do usuário.
+
+## Dependências Principais
+
+| Pacote | Uso |
+|--------|-----|
+| `fastapi` | Framework web |
+| `sqlmodel` | ORM + validação |
+| `sqladmin` | Painel administrativo |
+| `alembic` | Migrações de banco |
+| `pyjwt` | Tokens JWT |
+| `bcrypt` | Hash de senhas |
+| `pydantic-settings` | Configurações via .env |
+| `uvicorn` | Servidor ASGI |
+| `minio` | Storage de arquivos (opcional) |
+
+## Recursos Incluídos
+
+- ✅ Sistema de usuários com autenticação JWT
+- ✅ Painel admin personalizado com Tailwind CSS
+- ✅ Migrações de banco com Alembic
+- ✅ Configuração via variáveis de ambiente
+- ✅ Logging estruturado (pylogkit)
+- ✅ Suporte a MinIO (storage S3-compatible)
+- ✅ SMTP configurável para emails
+- ✅ Linting e formatação automáticos
+- ✅ Type checking com Pyright
+- ✅ Templates responsivos
+- ✅ Ícones customizáveis
+- ✅ Middleware CSP para segurança

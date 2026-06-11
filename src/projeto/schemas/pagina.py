@@ -28,6 +28,9 @@ class Pagina(PaginaCreate, table=True):
 
     livro: "Livro" = Relationship(back_populates="paginas")  # pyright: ignore[reportUnknownVariableType]
 
+    def __str__(self) -> str:
+        return f"{self.nome} {self.id}"
+
 
 class PaginaRead(SQLModel):
     id: UUID

@@ -14,19 +14,21 @@ class CRUDService[T: SQLModel](ABC):
         self.session = session
 
     @abstractmethod
-    async def create(self, *args, **kwargs) -> T:
+    async def create(self, *args: list[object], **kwargs: dict[str, object]) -> T:
         pass
 
     @abstractmethod
-    async def read(self, *args, **kwargs) -> T | None | list[T]:
+    async def read(
+        self, *args: list[object], **kwargs: dict[str, object]
+    ) -> T | None | list[T]:
         pass
 
     @abstractmethod
-    async def update(self, *args, **kwargs) -> T:
+    async def update(self, *args: list[object], **kwargs: dict[str, object]) -> T:
         pass
 
     @abstractmethod
-    async def delete(self, *args, **kwargs) -> T:
+    async def delete(self, *args: list[object], **kwargs: dict[str, object]) -> T:
         pass
 
     async def commit(self) -> None:
@@ -85,8 +87,6 @@ class CRUDGeneric[T: SQLModel](CRUDService[T]):
 
     @overload
     async def read(self, obj_id: Any) -> T: ...
-    @overload
-    async def read(self, obj_id: None) -> list[T]: ...
     @overload
     async def read(self) -> list[T]: ...
 

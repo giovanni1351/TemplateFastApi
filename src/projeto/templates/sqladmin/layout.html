@@ -1,0 +1,132 @@
+{% extends "sqladmin/base.html" %}
+{% from 'sqladmin/_macros.html' import display_menu %}
+
+{% block body %}
+<div class="flex min-h-screen">
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden" onclick="toggleSidebar()"></div>
+    
+    <aside id="sidebar" class="fixed lg:static inset-y-0 left-0 z-50 w-64 bg-sidebar text-white flex flex-col shadow-lg transform -translate-x-full lg:translate-x-0 transition-all duration-300 ease-in-out">
+        <div class="p-4 border-b border-white/10 flex items-center justify-between">
+            <a href="{{ url_for('admin:index') }}" class="flex items-center gap-3 min-w-0 flex-1 sidebar-text">
+                {% if admin_config.logo_url %}
+                <img src="{{ admin_config.logo_url }}" alt="{{ admin_config.nome_sistema }}" class="w-10 h-10 rounded-lg flex-shrink-0">
+                {% else %}
+                <div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center font-bold text-lg flex-shrink-0">
+                    {{ admin_config.nome_sistema[0] }}
+                </div>
+                {% endif %}
+                <div class="min-w-0 overflow-hidden">
+                    <h1 class="font-bold text-lg truncate">{{ admin_config.nome_sistema }}</h1>
+                    <p class="text-xs text-white/60 truncate">{{ admin_config.nome_empresa }}</p>
+                </div>
+            </a>
+            <button onclick="toggleSidebar()" class="hidden lg:flex p-2 rounded-lg hover:bg-white/10 transition-colors" aria-label="Minimizar">
+                <svg id="collapse-icon" class="w-5 h-5 text-white/70 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
+                </svg>
+            </button>
+        </div>
+        <nav class="flex-1 p-4 overflow-y-auto overflow-x-hidden">
+            {{ display_menu(admin._menu, request) }}
+        </nav>
+        {% if admin.authentication_backend %}
+        <div class="p-4 border-t border-white/10">
+            <a href="{{ request.url_for('admin:logout') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-white/10 transition-colors">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+                <span class="sidebar-text">Sair</span>
+            </a>
+        </div>
+        {% endif %}
+    </aside>
+
+    <div class="flex-1 flex flex-col min-w-0">
+        <header class="bg-white shadow-sm border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-4">
+            {% block content_header %}
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Menu">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+                <div class="min-w-0 flex-1">
+                    <h2 class="text-xl sm:text-2xl font-bold text-gray-800 truncate">{{ title }}</h2>
+                    {% if subtitle %}
+                    <p class="text-sm text-gray-500 mt-1 truncate">{{ subtitle }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endblock %}
+        </header>
+
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
+
+<script>
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('sidebar-overlay');
+const collapseIcon = document.getElementById('collapse-icon');
+const isMobile = () => window.innerWidth < 1024;
+
+function toggleSidebar() {
+    if (isMobile()) {
+        sidebar.classList.toggle('-translate-x-full');
+        overlay.classList.toggle('hidden');
+    } else {
+        sidebar.classList.toggle('w-64');
+        sidebar.classList.toggle('w-16');
+        const isCollapsed = sidebar.classList.contains('w-16');
+        
+        document.querySelectorAll('.sidebar-text').forEach(el => {
+            el.classList.toggle('lg:hidden', isCollapsed);
+        });
+        document.querySelectorAll('.sidebar-menu-text').forEach(el => {
+            el.classList.toggle('hidden', isCollapsed);
+        });
+        document.querySelectorAll('.sidebar-category').forEach(el => {
+            if (isCollapsed) {
+                el.classList.add('lg:justify-center', 'lg:px-0');
+            } else {
+                el.classList.remove('lg:justify-center', 'lg:px-0');
+            }
+        });
+        document.querySelectorAll('.sidebar-item').forEach(el => {
+            if (isCollapsed) {
+                el.classList.add('lg:justify-center', 'lg:px-0');
+            } else {
+                el.classList.remove('lg:justify-center', 'lg:px-0');
+            }
+        });
+        document.querySelectorAll('.sidebar-category-children').forEach(el => {
+            el.classList.toggle('hidden', isCollapsed);
+        });
+        
+        collapseIcon.style.transform = isCollapsed ? 'rotate(180deg)' : '';
+        localStorage.setItem('sidebar-collapsed', isCollapsed);
+    }
+}
+
+function initSidebar() {
+    if (!isMobile() && localStorage.getItem('sidebar-collapsed') === 'true') {
+        sidebar.classList.remove('w-64');
+        sidebar.classList.add('w-16');
+        document.querySelectorAll('.sidebar-text').forEach(el => el.classList.add('lg:hidden'));
+        document.querySelectorAll('.sidebar-menu-text').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.sidebar-category').forEach(el => {
+            el.classList.add('lg:justify-center', 'lg:px-0');
+        });
+        document.querySelectorAll('.sidebar-item').forEach(el => {
+            el.classList.add('lg:justify-center', 'lg:px-0');
+        });
+        document.querySelectorAll('.sidebar-category-children').forEach(el => el.classList.add('hidden'));
+        collapseIcon.style.transform = 'rotate(180deg)';
+    }
+}
+
+initSidebar();
+</script>
+{% endblock %}

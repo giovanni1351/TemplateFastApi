@@ -9,6 +9,6 @@ router = crud_router(
     update_schema=PaginaUpdate,
     select_schema=PaginaRead,
     include_relationships=["livro"],  # Optional: automatically include related data
-    path="/Pagina",
+    path="/pagina",
     tags=["Pagina"],
 )
