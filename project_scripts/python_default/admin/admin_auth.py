@@ -1,19 +1,13 @@
 from datetime import timedelta
-from typing import Any
 
 import jwt
-from auth import authenticate_user, create_access_token, get_password_hash
+from auth import authenticate_user, create_access_token
 from database import get_async_session
-from fastapi import HTTPException, status
-from schemas.livro import Livro
-from schemas.pagina import Pagina
-from schemas.password_reset import PasswordReset
+from fastapi import HTTPException, Request, status
 from schemas.user import User
 from settings import SETTINGS
-from sqladmin import ModelView
 from sqladmin.authentication import AuthenticationBackend
 from sqlmodel import select
-from starlette.requests import Request
 
 
 class AdminAuth(AuthenticationBackend):
@@ -80,43 +74,3 @@ class AdminAuth(AuthenticationBackend):
 
 
 backend_auth = AdminAuth(SETTINGS.SECRET_KEY)
-
-
-class UserAdmin(ModelView, model=User):
-    column_list = [User.nome, User.sobrenome, User.email, User.is_admin]
-    column_details_exclude_list = [User.password]
-    can_create = True
-    card_style = True
-    icon = "fa-solid fa-users"
-
-    async def insert_model(self, request: Request, data: dict[str, Any]) -> User:
-        if "password" in data and data["password"]:
-            data["password"] = get_password_hash(data["password"])
-        return await super().insert_model(request, data)
-
-    async def update_model(
-        self, request: Request, pk: Any, data: dict[str, Any]
-    ) -> User:
-        if "password" in data:
-            if data["password"]:
-                data["password"] = get_password_hash(data["password"])
-            else:
-                data.pop("password")
-        return await super().update_model(request, pk, data)
-
-
-class PasswordResetAdmin(ModelView, model=PasswordReset):
-    card_style = False
-    icon = "🔑"
-
-
-class LivroAdmin(ModelView, model=Livro):
-    column_list = [Livro.nome]
-    card_style = True
-    icon = "/static/icons/book.svg"
-
-
-class PaginaAdmin(ModelView, model=Pagina):
-    column_list = [Pagina.nome, Pagina.numero]
-    card_style = False
-    icon = None

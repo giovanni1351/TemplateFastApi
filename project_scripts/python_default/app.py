@@ -7,13 +7,11 @@ from database import async_engine
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
-from middleware.csp import CSPMiddleware
 from router import router
 from sqladmin import Admin
 from uvicorn import run
 
 app = FastAPI()
-app.add_middleware(CSPMiddleware)
 app.include_router(router)
 
 static_dir = Path(__file__).parent / "static"

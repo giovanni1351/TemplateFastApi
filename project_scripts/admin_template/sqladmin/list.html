@@ -1,0 +1,359 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+<div class="space-y-4 sm:space-y-6">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="p-4 sm:p-6 border-b border-gray-200">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <h3 class="text-lg sm:text-xl font-semibold text-gray-800">{{ model_view.name_plural }}</h3>
+                <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+                    {% if model_view.can_export %}
+                    {% if model_view.export_types | length > 1 %}
+                    <div class="relative">
+                        <button onclick="this.nextElementSibling.classList.toggle('hidden')" class="px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm font-medium">
+                            Exportar
+                        </button>
+                        <div class="hidden absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                            {% for export_type in model_view.export_types %}
+                            <a href="{{ url_for('admin:export', identity=model_view.identity, export_type=export_type) }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                {{ export_type | upper }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% elif model_view.export_types | length == 1 %}
+                    <a href="{{ url_for('admin:export', identity=model_view.identity, export_type=model_view.export_types[0]) }}" class="px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm font-medium">
+                        Exportar
+                    </a>
+                    {% endif %}
+                    {% endif %}
+                    {% if model_view.can_create %}
+                    <a href="{{ url_for('admin:create', identity=model_view.identity) }}" class="px-3 sm:px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors text-sm font-medium shadow-sm whitespace-nowrap">
+                        + Novo {{ model_view.name }}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="p-4 sm:p-6 border-b border-gray-200">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                {% if model_view.can_delete or model_view._custom_actions_in_list %}
+                <div class="relative">
+                    <button onclick="this.nextElementSibling.classList.toggle('hidden')" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm font-medium flex items-center gap-2">
+                        Ações
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div class="hidden absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                        {% if model_view.can_delete %}
+                        <a href="#" id="action-delete" data-name="{{ model_view.name }}" data-url="{{ url_for('admin:delete', identity=model_view.identity) }}" onclick="document.getElementById('modal-delete').classList.remove('hidden')" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                            Excluir selecionados
+                        </a>
+                        {% endif %}
+                        {% for custom_action, label in model_view._custom_actions_in_list.items() %}
+                        {% if custom_action in model_view._custom_actions_confirmation %}
+                        <a href="#" id="action-customconfirm-{{ custom_action }}" onclick="document.getElementById('modal-confirmation-{{ custom_action }}').classList.remove('hidden')" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            {{ label }}
+                        </a>
+                        {% else %}
+                        <a href="#" id="action-custom-{{ custom_action }}" data-url="{{ model_view._url_for_action(request, custom_action) }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            {{ label }}
+                        </a>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if model_view.column_searchable_list %}
+                <div class="w-full sm:w-auto">
+                    <form method="get" class="flex items-center gap-2">
+                        <input id="search-input" type="text" name="search" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-sm min-w-0" placeholder="Buscar: {{ model_view.search_placeholder() }}" value="{{ request.query_params.get('search', '') }}">
+                        <button type="submit" class="px-3 sm:px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors text-sm font-medium whitespace-nowrap">
+                            Buscar
+                        </button>
+                        {% if request.query_params.get('search') %}
+                        <a href="{{ request.url.remove_query_params('search') }}" class="p-2 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </a>
+                        {% endif %}
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if model_view.card_style %}
+        <div class="p-6">
+            {% if pagination.rows %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {% for row in pagination.rows %}
+                <div class="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 transition-all overflow-hidden group">
+                    <div class="p-5">
+                        {% for name in model_view._list_prop_names %}
+                        {% set value, formatted_value = model_view.get_list_value(row, name) %}
+                        {% set label = model_view._column_labels.get(name, name) %}
+                        <div class="{% if not loop.last %}mb-3{% endif %}">
+                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">{{ label }}</span>
+                            <div class="mt-1 text-sm text-gray-800">
+                                {% if name in model_view._relation_names %}
+                                {% if is_list(value) %}
+                                <div class="flex flex-wrap gap-1">
+                                    {% for elem, formatted_elem in zip(value, formatted_value) %}
+                                    <a href="{{ model_view._build_url_for('admin:details', request, elem) }}" class="inline-flex items-center px-2 py-0.5 rounded bg-primary/10 text-primary text-xs hover:bg-primary/20 transition-colors">
+                                        {{ formatted_elem }}
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <a href="{{ model_view._url_for_details_with_prop(request, row, name) }}" class="text-primary hover:underline">{{ formatted_value }}</a>
+                                {% endif %}
+                                {% else %}
+                                {% if loop.first %}
+                                <span class="text-base font-semibold text-gray-900">{{ formatted_value }}</span>
+                                {% else %}
+                                {{ formatted_value }}
+                                {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                        <input type="checkbox" class="select-box w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" value="{{ get_object_identifier(row) }}">
+                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {% if model_view.can_view_details %}
+                            <a href="{{ model_view._build_url_for('admin:details', request, row) }}" class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Ver">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                            </a>
+                            {% endif %}
+                            {% if model_view.can_edit %}
+                            <a href="{{ model_view._build_url_for('admin:edit', request, row) }}" class="p-1.5 text-gray-400 hover:text-accent hover:bg-accent/10 rounded-lg transition-colors" title="Editar">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                            </a>
+                            {% endif %}
+                            {% if model_view.can_delete %}
+                            <a href="#" data-name="{{ model_view.name }}" data-pk="{{ get_object_identifier(row) }}" data-url="{{ model_view._url_for_delete(request, row) }}" onclick="document.getElementById('modal-delete').classList.remove('hidden'); document.getElementById('modal-delete-button').dataset.url=this.dataset.url" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <svg class="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                </svg>
+                <p class="text-gray-500">Nenhum registro encontrado</p>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="w-12 px-6 py-3">
+                            <input type="checkbox" id="select-all" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary">
+                        </th>
+                        <th class="w-12 px-4 py-3"></th>
+                        {% for name in model_view._list_prop_names %}
+                        {% set label = model_view._column_labels.get(name, name) %}
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            {% if name in model_view._sort_fields %}
+                            {% if request.query_params.get("sortBy") == name and request.query_params.get("sort") == "asc" %}
+                            <a href="{{ request.url.include_query_params(sort='desc') }}" class="flex items-center gap-1 hover:text-primary">
+                                {{ label }}
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5 12l5-5 5 5H5z"/></svg>
+                            </a>
+                            {% elif request.query_params.get("sortBy") == name and request.query_params.get("sort") == "desc" %}
+                            <a href="{{ request.url.include_query_params(sort='asc') }}" class="flex items-center gap-1 hover:text-primary">
+                                {{ label }}
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M15 8l-5 5-5-5h10z"/></svg>
+                            </a>
+                            {% else %}
+                            <a href="{{ request.url.include_query_params(sortBy=name, sort='asc') }}" class="flex items-center gap-1 hover:text-primary">
+                                {{ label }}
+                            </a>
+                            {% endif %}
+                            {% else %}
+                            {{ label }}
+                            {% endif %}
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for row in pagination.rows %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <input type="checkbox" class="select-box w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" value="{{ get_object_identifier(row) }}">
+                        </td>
+                        <td class="px-4 py-4">
+                            <div class="flex items-center gap-2">
+                                {% if model_view.can_view_details %}
+                                <a href="{{ model_view._build_url_for('admin:details', request, row) }}" class="p-1 text-gray-400 hover:text-primary transition-colors" title="Ver">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                    </svg>
+                                </a>
+                                {% endif %}
+                                {% if model_view.can_edit %}
+                                <a href="{{ model_view._build_url_for('admin:edit', request, row) }}" class="p-1 text-gray-400 hover:text-accent transition-colors" title="Editar">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                    </svg>
+                                </a>
+                                {% endif %}
+                                {% if model_view.can_delete %}
+                                <a href="#" data-name="{{ model_view.name }}" data-pk="{{ get_object_identifier(row) }}" data-url="{{ model_view._url_for_delete(request, row) }}" onclick="document.getElementById('modal-delete').classList.remove('hidden'); document.getElementById('modal-delete-button').dataset.url=this.dataset.url" data-url="{{ model_view._url_for_delete(request, row) }}" class="p-1 text-gray-400 hover:text-red-500 transition-colors" title="Excluir">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                        {% for name in model_view._list_prop_names %}
+                        {% set value, formatted_value = model_view.get_list_value(row, name) %}
+                        <td class="px-6 py-4 text-sm text-gray-700">
+                            {% if name in model_view._relation_names %}
+                            {% if is_list(value) %}
+                            <div class="flex flex-wrap gap-1">
+                                {% for elem, formatted_elem in zip(value, formatted_value) %}
+                                <a href="{{ model_view._build_url_for('admin:details', request, elem) }}" class="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary text-xs hover:bg-primary/20 transition-colors">
+                                    {{ formatted_elem }}
+                                </a>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <a href="{{ model_view._url_for_details_with_prop(request, row, name) }}" class="text-primary hover:underline">{{ formatted_value }}</a>
+                            {% endif %}
+                            {% else %}
+                            {{ formatted_value }}
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="{{ model_view._list_prop_names | length + 2 }}" class="px-6 py-12 text-center text-gray-500">
+                            <svg class="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                            </svg>
+                            <p>Nenhum registro encontrado</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <div class="p-4 sm:p-6 border-t border-gray-200">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <p class="text-sm text-gray-600 text-center sm:text-left">
+                    Mostrando <span class="font-medium">{{ ((pagination.page - 1) * pagination.page_size) + 1 }}</span> a
+                    <span class="font-medium">{{ min(pagination.page * pagination.page_size, pagination.count) }}</span> de
+                    <span class="font-medium">{{ pagination.count }}</span> registros
+                </p>
+                <div class="flex items-center justify-center sm:justify-end">
+                    <nav class="flex items-center gap-1 flex-wrap justify-center">
+                        {% if pagination.has_previous %}
+                        <a href="{{ pagination.previous_page.url }}" class="px-2 sm:px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                        </a>
+                        {% endif %}
+                        {% for page_control in pagination.page_controls %}
+                        <a href="{{ page_control.url }}" class="px-2 sm:px-3 py-2 rounded-lg transition-colors text-sm {% if page_control.number == pagination.page %}bg-primary text-white{% else %}bg-gray-100 hover:bg-gray-200 text-gray-700{% endif %}">
+                            {{ page_control.number }}
+                        </a>
+                        {% endfor %}
+                        {% if pagination.has_next %}
+                        <a href="{{ pagination.next_page.url }}" class="px-2 sm:px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if model_view.get_filters() %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Filtros</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for filter in model_view.get_filters() %}
+            <div class="p-4 bg-gray-50 rounded-lg">
+                <div class="font-medium text-gray-700 mb-2">{{ filter.title }}</div>
+                {% if filter.has_operator %}
+                {% set current_filter = request.query_params.get(filter.parameter_name, '') %}
+                {% set current_op = request.query_params.get(filter.parameter_name + '_op', '') %}
+                <form method="get" class="space-y-2">
+                    {% for key, value in request.query_params.items() %}
+                    {% if key != filter.parameter_name and key != filter.parameter_name + '_op' %}
+                    <input type="hidden" name="{{ key }}" value="{{ value }}">
+                    {% endif %}
+                    {% endfor %}
+                    <select name="{{ filter.parameter_name }}_op" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary">
+                        <option value="">Operação...</option>
+                        {% for op_value, op_label in filter.get_operation_options_for_model(model_view.model) %}
+                        <option value="{{ op_value }}" {% if current_op == op_value %}selected{% endif %}>{{ op_label }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="text" name="{{ filter.parameter_name }}" placeholder="Valor" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary" value="{{ current_filter }}">
+                    <button type="submit" class="w-full px-3 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium transition-colors">Aplicar</button>
+                </form>
+                {% else %}
+                <div class="flex flex-wrap gap-2">
+                    {% for lookup in filter.lookups(request, model_view.model, model_view._run_arbitrary_query) %}
+                    {% if request.query_params.get(filter.parameter_name) == lookup[0] %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full bg-primary text-white text-sm">
+                        {{ lookup[1] }}
+                        <a href="{{ request.url.remove_query_params(filter.parameter_name) }}" class="ml-2 hover:text-white/80">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </a>
+                    </span>
+                    {% else %}
+                    <a href="{{ request.url.include_query_params(**{filter.parameter_name: lookup[0]}) }}" class="inline-flex items-center px-3 py-1 rounded-full bg-gray-200 text-gray-700 text-sm hover:bg-gray-300 transition-colors">
+                        {{ lookup[1] }}
+                    </a>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if model_view.can_delete %}
+{% include 'sqladmin/modals/delete.html' %}
+{% endif %}
+
+{% for custom_action in model_view._custom_actions_in_list %}
+{% if custom_action in model_view._custom_actions_confirmation %}
+{% with confirmation_message = model_view._custom_actions_confirmation[custom_action], custom_action=custom_action, url=model_view._url_for_action(request, custom_action) %}
+{% include 'sqladmin/modals/list_action_confirmation.html' %}
+{% endwith %}
+{% endif %}
+{% endfor %}
+{% endblock %}
