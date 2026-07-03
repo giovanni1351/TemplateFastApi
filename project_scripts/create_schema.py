@@ -96,6 +96,18 @@ class Modelo:
         self.campos.remove(self.campos[indice])
         print("Campo removido com sucesso")
 
+    def create_create_schema_str(self) -> str:
+        string = f"class {self.nome}Create(SQLModel):\n"
+        for campo in self.campos:
+            string += f"    {campo.nome}: {campo.tipo}"
+            if campo.default:
+                if campo.tipo == Tipos.str:
+                    string += f'= "{campo.default}"'
+                else:
+                    string += f"= {campo.default}"
+            string += "\n"
+        return string
+
     def create_sqlmodel_table_str(self) -> str:
         string = f"class {self.nome}(SQLModel, table = True):\n"
         for campo in self.campos:
@@ -159,13 +171,39 @@ class Modelo:
         content += f"    admin.add_view({self.nome}Admin)\n"
         return content
 
-    def create_fast_crud(self) -> str: ...
+    def create_fast_crud(self) -> str:
+        content = "from auth import UserByRole\n"
+        content += "from database import get_async_session\n"
+        content += "from fastcrud import crud_router  # type: ignore\n"
+        content += f"from schemas.{self.nome.lower()} import {self.nome}, {self.nome}Create, {self.nome}Public, {self.nome}Update\n"
+        content += "\n\n\n"
+        content += "router = crud_router(\n"
+        content += "session=get_async_session,\n"
+        content += f"model={self.nome},\n"
+        content += f"create_schema={self.nome}Create,\n"
+        content += f"update_schema={self.nome}Update,\n"
+        content += f"select_schema={self.nome}Public,\n"
+        content += f"path='/{self.nome.lower()}',\n"
+        content += f"tags=['{self.nome}'],\n"
+        content += "create_deps=[UserByRole([])],\n"
+        content += "read_deps=[UserByRole([])],\n"
+        content += "read_multi_deps=[UserByRole([])],\n"
+        content += "update_deps=[UserByRole([])],\n"
+        content += "delete_deps=[UserByRole([])],\n"
+        content += ")\n"
+        return content
+
+    def register_router(self):
+        content = f"from routes import {self.nome.lower()}\n"
+        content += f"router.include_router({self.nome.lower()}.router)\n"
+        return content
 
 
 class CreateSchema:
     def __init__(self, project_path: str) -> None:
         base_path = Path(__file__)
         print(base_path)
+        self.project_path = project_path
         self.dir_schema = os.path.join(project_path, "schemas")
         self.dir_routes = os.path.join(project_path, "routes")
         self.path_file_admin_view = os.path.join(project_path, "admin", "admin_view.py")
@@ -233,8 +271,9 @@ class CreateSchema:
                     content = "from sqlmodel import Field,Relationship,SQLModel\n\n\n\n"
 
                     content += modelo.create_sqlmodel_table_str()
-                    content += modelo.create_public_schema_str()
+                    content += modelo.create_create_schema_str()
                     content += modelo.create_update_schema_str()
+                    content += modelo.create_public_schema_str()
 
                     with open(
                         os.path.join(self.dir_schema, f"{modelo.nome.lower()}.py"), "w"
@@ -260,12 +299,20 @@ class CreateSchema:
                         file.write(modelo.create_admin_view(list_view))
                     with open(self.path_file_admin_setup, "a") as file:
                         file.write(modelo.create_admin_setup())
+                case "8":
+                    if not modelo:
+                        print("Diga o nome do modelo")
+                        continue
+
+                    with open(
+                        os.path.join(self.dir_routes, f"{modelo.nome.lower()}.py"), "w"
+                    ) as file:
+                        file.write(modelo.create_fast_crud())
+                    with open(
+                        os.path.join(self.project_path, "router.py"), "a"
+                    ) as file:
+                        file.write(modelo.register_router())
                 case "sair":
                     break
                 case _:
                     self.menu()
-
-
-if __name__ == "__main__":
-    create_schema = CreateSchema()
-    create_schema.run()
