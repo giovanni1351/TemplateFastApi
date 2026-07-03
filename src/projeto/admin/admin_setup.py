@@ -16,3 +16,12 @@ def setup_admin(admin: Admin) -> None:
     from admin.admin_view import PaginaAdmin
 
     admin.add_view(PaginaAdmin)
+    from admin.admin_view import PermissionAdmin
+
+    admin.add_view(PermissionAdmin)
+    from admin.admin_view import PermissionGroupAdmin
+
+    admin.add_view(PermissionGroupAdmin)
+    from admin.admin_rbac import RBACAdmin
+
+    admin.add_view(RBACAdmin)

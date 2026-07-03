@@ -1,8 +1,17 @@
 from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlmodel import Field, SQLModel  # pyright: ignore[reportUnknownVariableType]
+from schemas.rbac import UserGroupLink, UserPermissionLink
+from sqlmodel import (
+    Field,  # pyright: ignore[reportUnknownVariableType]
+    Relationship,
+    SQLModel,
+)
+
+if TYPE_CHECKING:
+    from schemas.rbac import Permission, PermissionGroup
 
 
 class UserTypes(Enum):
@@ -30,3 +39,9 @@ class User(UserCreate, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime | None = Field(default=None)
     deleted_at: datetime | None = Field(default=None)
+    permissions: list["Permission"] = Relationship(  # pyright: ignore[reportUnknownVariableType]
+        back_populates="users", link_model=UserPermissionLink
+    )
+    groups: list["PermissionGroup"] = Relationship(  # pyright: ignore[reportUnknownVariableType]
+        back_populates="users", link_model=UserGroupLink
+    )

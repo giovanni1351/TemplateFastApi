@@ -2,14 +2,15 @@ from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from auth import UserByRole, get_current_user, get_password_hash
+from auth import get_current_user, get_password_hash
 from database import AsyncSessionDep
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status
 from schemas.password_reset import (
     ForgotPasswordRequest,
     PasswordReset,
     ResetPasswordRequest,
 )
+from schemas.rbac import PermissionRead
 from schemas.user import (
     User,
     UserCreate,
@@ -19,11 +20,13 @@ from settings import SETTINGS
 from sqlmodel import col, select
 from utils.crud import CRUDGeneric
 from utils.email_service import send_password_reset_email
+from utils.rbac_router import RBACRouter, get_user_permissions, public_route
 
-router = APIRouter(prefix="/user", tags=["User"])
+router = RBACRouter(prefix="/user", tags=["User"])
 
 
 @router.post("/")
+@public_route  # cadastro é aberto
 async def post_user(user: UserCreate, session: AsyncSessionDep) -> UserCreate:
     user_new = User(**user.model_dump())
     user_new.password = get_password_hash(user.password)
@@ -33,6 +36,7 @@ async def post_user(user: UserCreate, session: AsyncSessionDep) -> UserCreate:
 
 
 @router.put("/")
+@public_route  # usuário autenticado sempre pode atualizar o próprio cadastro
 async def put_user(
     user: UserUpdate,
     session: AsyncSessionDep,
@@ -46,15 +50,15 @@ async def put_user(
 @router.get("/")
 async def get_users(
     session: AsyncSessionDep,
-    current_user: Annotated[
-        User, Depends(UserByRole([]))
-    ],  # somente admin pode listar outros usuarios
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> list[User]:
+    # protegida por RBAC: admin ou usuário com a permissão "GET:/user/"
     crud = CRUDGeneric(User, session)
     return await crud.read()
 
 
 @router.delete("/")
+@public_route  # usuário autenticado sempre pode deletar a própria conta
 async def delete_user(
     session: AsyncSessionDep,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -67,15 +71,15 @@ async def delete_user(
 async def delete_user_by_id(
     user_id: UUID,
     session: AsyncSessionDep,
-    current_user: Annotated[
-        User, Depends(UserByRole([]))
-    ],  # somente admin pode deletar outros usuarios
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
+    # protegida por RBAC: admin ou usuário com a permissão "DELETE:/user/{user_id}"
     crud = CRUDGeneric(User, session)
     return await crud.delete(user_id)
 
 
 @router.get("/me")
+@public_route  # usuário autenticado sempre pode ver o próprio cadastro
 async def get_me(
     session: AsyncSessionDep,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -83,19 +87,30 @@ async def get_me(
     return current_user
 
 
+@router.get("/me/permissions")
+@public_route  # usuário autenticado sempre pode consultar as próprias permissões
+async def get_my_permissions(
+    session: AsyncSessionDep,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[PermissionRead]:
+    """Retorna todas as rotas que o usuário atual tem acesso."""
+    permissions = await get_user_permissions(current_user, session)
+    return [PermissionRead.model_validate(p) for p in permissions]
+
+
 @router.get("/{user_id}")
 async def get_user_by_id(
     user_id: UUID,
     session: AsyncSessionDep,
-    current_user: Annotated[
-        User, Depends(UserByRole([]))
-    ],  # somente admin pode ver outros usuarios
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
+    # protegida por RBAC: admin ou usuário com a permissão "GET:/user/{user_id}"
     crud = CRUDGeneric(User, session)
     return await crud.read(user_id)
 
 
 @router.post("/forgot-password")
+@public_route  # fluxo de recuperação de senha é aberto
 async def forgot_password(
     data: ForgotPasswordRequest, session: AsyncSessionDep
 ) -> dict[str, str]:
@@ -139,6 +154,7 @@ async def forgot_password(
 
 
 @router.post("/reset-password")
+@public_route  # fluxo de recuperação de senha é aberto
 async def reset_password(
     data: ResetPasswordRequest, session: AsyncSessionDep
 ) -> dict[str, str]:

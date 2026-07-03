@@ -1,3 +1,5 @@
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Literal
 
@@ -10,9 +12,18 @@ from fastapi.staticfiles import StaticFiles
 from middleware.csp import CSPMiddleware
 from router import router
 from sqladmin import Admin
+from utils.rbac_router import sync_permissions
 from uvicorn import run
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    # mapeia todas as rotas protegidas e sincroniza a tabela de permissões
+    await sync_permissions(app)
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(CSPMiddleware)
 app.include_router(router)
 

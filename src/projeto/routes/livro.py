@@ -1,7 +1,7 @@
-from auth import UserByRole
 from database import get_async_session
 from fastcrud import crud_router  # type: ignore
 from schemas.livro import Livro, LivroCreate, LivroRead, LivroUpdate
+from utils.rbac_router import verify_rbac
 
 router = crud_router(
     session=get_async_session,
@@ -12,9 +12,9 @@ router = crud_router(
     include_relationships=["paginas"],  # Optional: automatically include related data
     path="/livro",
     tags=["Livro"],
-    create_deps=[UserByRole([])],
-    read_deps=[UserByRole([])],
-    read_multi_deps=[UserByRole([])],
-    update_deps=[UserByRole([])],
-    delete_deps=[UserByRole([])],
+    create_deps=[verify_rbac],
+    read_deps=[verify_rbac],
+    read_multi_deps=[verify_rbac],
+    update_deps=[verify_rbac],
+    delete_deps=[verify_rbac],
 )
