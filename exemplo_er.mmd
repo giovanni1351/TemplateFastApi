@@ -1,0 +1,45 @@
+erDiagram
+    %% Exemplo de diagrama ER para o gerenciador
+    %% Teste com:
+    %%   uv run python gerenciar.py from-mermaid <projeto> exemplo_er.mmd --dry-run
+    %%   uv run python gerenciar.py from-mermaid <projeto> exemplo_er.mmd --migrate
+
+    MEDICO ||--o{ CONSULTA : atende
+    PACIENTE ||--o{ CONSULTA : agenda
+    PACIENTE ||--|| PRONTUARIO : possui
+    MEDICO }o--o{ ESPECIALIDADE : "formado em"
+
+    MEDICO {
+        string nome
+        string crm UK "no-update"
+        string email UK
+        bool ativo "default=true"
+        float valor_consulta "default=0"
+    }
+
+    PACIENTE {
+        string nome
+        string cpf UK "no-update"
+        string telefone "nullable"
+        date data_nascimento "nullable"
+        string convenio "nullable,index"
+    }
+
+    CONSULTA {
+        datetime horario
+        string status "default=agendada"
+        string motivo "nullable"
+        float valor "default=0"
+        string observacoes "nullable,no-read"
+    }
+
+    PRONTUARIO {
+        string tipo_sanguineo "nullable"
+        string alergias "nullable"
+        string historico "nullable"
+    }
+
+    ESPECIALIDADE {
+        string nome UK
+        string descricao "nullable"
+    }

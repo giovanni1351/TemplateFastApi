@@ -25,3 +25,6 @@ def setup_admin(admin: Admin) -> None:
     from admin.admin_rbac import RBACAdmin
 
     admin.add_view(RBACAdmin)
+    from admin.admin_view import ProdutoAdmin
+
+    admin.add_view(ProdutoAdmin)

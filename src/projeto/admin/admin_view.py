@@ -90,3 +90,12 @@ class PermissionGroupAdmin(ModelView, model=PermissionGroup):
     form_columns = ["name", "description"]  # noqa: RUF012
     card_style = False
     icon = "fa-solid fa-user-shield"
+
+
+from schemas.produto import Produto  # noqa: E402
+
+
+class ProdutoAdmin(ModelView, model=Produto):
+    column_list = [Produto.nome, Produto.descricao, Produto.sku, Produto.preco, Produto.estoque]  # noqa: RUF012
+    card_style = False
+    icon = None

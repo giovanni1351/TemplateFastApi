@@ -1,60 +1,32 @@
-import os
+"""Gerenciador do FastAPI Template.
+
+Sem argumentos: modo interativo (menus).
+Com argumentos: CLI completo, pensado para humanos e LLMs.
+
+    python gerenciar.py --help
+    python gerenciar.py list-projects --json
+    python gerenciar.py create-project loja --no-rbac
+    python gerenciar.py create-schema loja Produto --field nome:str --field preco:float
+
+Documentação completa: GERENCIADOR_CLI.md
+"""
+
+import sys
 from pathlib import Path
 
-from project_scripts.create_project import CreateProject
-from project_scripts.create_schema import CreateSchema
+BASE_DIR = Path(__file__).parent
 
 
-class Gerenciar:
-    def __init__(self):
-        self.root_dir = Path(__file__).parent
-        self.projects_dir = self.root_dir / "src"
+def main() -> int:
+    if len(sys.argv) > 1:
+        from project_scripts.cli import main as cli_main
 
-    def menu(self) -> None:
-        print("Seja bem-vindo ao gerenciador do projeto")
-        print("O que deseja fazer?")
-        print("0. Ver menu ")
-        print("1. Criar projeto novo")
-        print("2. Listar projetos")
-        print("3. Criar schema")
+        return cli_main(BASE_DIR)
+    from project_scripts.interactive import run
 
-    def run(self) -> None:
-        projetos: list[str] = []
-        while True:
-            self.menu()
-            entrada = input("O que deseja fazer? ")
-
-            match entrada:
-                case "0":
-                    self.menu()
-                case "1":
-                    create_project = CreateProject()
-                    nome_projeto = create_project.run()
-                    projetos.append(nome_projeto)
-                case "2":
-                    print("\n\n")
-                    print("Projetos: ")
-                    for projeto in os.listdir(self.projects_dir):
-                        print(projeto)
-                    print("\n\n")
-                case "3":
-                    print("Selecione o projeto que vc deseja adicionar o schema")
-                    print("Projetos: ")
-                    projetos = os.listdir(self.projects_dir)
-                    for i, projeto in enumerate(projetos):
-                        print(i, projeto)
-                    print("\n\n")
-                    projeto_selecionado = projetos[int(input("Projeto:"))]
-                    criar_schema = CreateSchema(
-                        os.path.join(self.projects_dir, projeto_selecionado)
-                    )
-                    criar_schema.run()
-                case "sair":
-                    break
-                case _:
-                    self.menu()
+    run(BASE_DIR)
+    return 0
 
 
 if __name__ == "__main__":
-    gerenciar = Gerenciar()
-    gerenciar.run()
+    raise SystemExit(main())

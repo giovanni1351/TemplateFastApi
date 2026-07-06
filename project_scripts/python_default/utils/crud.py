@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, overload
 
 from fastapi import HTTPException, status
+from settings import LOGGER
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -37,6 +38,7 @@ class CRUDService[T: SQLModel](ABC):
         """Helper genérico para buscar"""
         item = await self.session.get(self.model, item_id)
         if not item:
+            LOGGER.warning(f"{self.model.__name__} não encontrado")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"{self.model.__name__} não encontrado",

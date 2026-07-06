@@ -2,14 +2,24 @@ from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from auth import UserByRole, get_current_user, get_password_hash
+# <no-rbac># from auth import UserByRole, get_current_user, get_password_hash
+# <rbac>
+from auth import get_current_user, get_password_hash
+# </rbac>
 from database import AsyncSessionDep
-from fastapi import APIRouter, Depends, HTTPException, status
+# <no-rbac># from fastapi import APIRouter, Depends, HTTPException, status
+# <rbac>
+from fastapi import Depends, HTTPException, status
+# </rbac>
 from schemas.password_reset import (
     ForgotPasswordRequest,
     PasswordReset,
     ResetPasswordRequest,
 )
+
+# <rbac>
+from schemas.rbac import PermissionRead
+# </rbac>
 from schemas.user import (
     User,
     UserCreate,
@@ -20,10 +30,18 @@ from sqlmodel import col, select
 from utils.crud import CRUDGeneric
 from utils.email_service import send_password_reset_email
 
-router = APIRouter(prefix="/user", tags=["User"])
+# <rbac>
+from utils.rbac_router import RBACRouter, get_user_permissions, public_route
+
+router = RBACRouter(prefix="/user", tags=["User"])
+# </rbac>
+# <no-rbac># router = APIRouter(prefix="/user", tags=["User"])
 
 
 @router.post("/")
+# <rbac>
+@public_route  # cadastro é aberto
+# </rbac>
 async def post_user(user: UserCreate, session: AsyncSessionDep) -> UserCreate:
     user_new = User(**user.model_dump())
     user_new.password = get_password_hash(user.password)
@@ -33,6 +51,9 @@ async def post_user(user: UserCreate, session: AsyncSessionDep) -> UserCreate:
 
 
 @router.put("/")
+# <rbac>
+@public_route  # usuário autenticado sempre pode atualizar o próprio cadastro
+# </rbac>
 async def put_user(
     user: UserUpdate,
     session: AsyncSessionDep,
@@ -46,15 +67,20 @@ async def put_user(
 @router.get("/")
 async def get_users(
     session: AsyncSessionDep,
-    current_user: Annotated[
-        User, Depends(UserByRole([]))
-    ],  # somente admin pode listar outros usuarios
+    # <rbac>
+    current_user: Annotated[User, Depends(get_current_user)],
+    # </rbac>
+    # <no-rbac>#     current_user: Annotated[User, Depends(UserByRole([]))],
 ) -> list[User]:
+    # protegida: admin ou usuário com permissão
     crud = CRUDGeneric(User, session)
     return await crud.read()
 
 
 @router.delete("/")
+# <rbac>
+@public_route  # usuário autenticado sempre pode deletar a própria conta
+# </rbac>
 async def delete_user(
     session: AsyncSessionDep,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -67,15 +93,20 @@ async def delete_user(
 async def delete_user_by_id(
     user_id: UUID,
     session: AsyncSessionDep,
-    current_user: Annotated[
-        User, Depends(UserByRole([]))
-    ],  # somente admin pode deletar outros usuarios
+    # <rbac>
+    current_user: Annotated[User, Depends(get_current_user)],
+    # </rbac>
+    # <no-rbac>#     current_user: Annotated[User, Depends(UserByRole([]))],
 ) -> User:
+    # protegida: admin ou usuário com permissão
     crud = CRUDGeneric(User, session)
     return await crud.delete(user_id)
 
 
 @router.get("/me")
+# <rbac>
+@public_route  # usuário autenticado sempre pode ver o próprio cadastro
+# </rbac>
 async def get_me(
     session: AsyncSessionDep,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -83,19 +114,37 @@ async def get_me(
     return current_user
 
 
+# <rbac>
+@router.get("/me/permissions")
+@public_route  # usuário autenticado sempre pode consultar as próprias permissões
+async def get_my_permissions(
+    session: AsyncSessionDep,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[PermissionRead]:
+    """Retorna todas as rotas que o usuário atual tem acesso."""
+    permissions = await get_user_permissions(current_user, session)
+    return [PermissionRead.model_validate(p) for p in permissions]
+
+
+# </rbac>
 @router.get("/{user_id}")
 async def get_user_by_id(
     user_id: UUID,
     session: AsyncSessionDep,
-    current_user: Annotated[
-        User, Depends(UserByRole([]))
-    ],  # somente admin pode ver outros usuarios
+    # <rbac>
+    current_user: Annotated[User, Depends(get_current_user)],
+    # </rbac>
+    # <no-rbac>#     current_user: Annotated[User, Depends(UserByRole([]))],
 ) -> User:
+    # protegida: admin ou usuário com permissão
     crud = CRUDGeneric(User, session)
     return await crud.read(user_id)
 
 
 @router.post("/forgot-password")
+# <rbac>
+@public_route  # fluxo de recuperação de senha é aberto
+# </rbac>
 async def forgot_password(
     data: ForgotPasswordRequest, session: AsyncSessionDep
 ) -> dict[str, str]:
@@ -130,8 +179,6 @@ async def forgot_password(
     session.add(reset_entry)
     await session.commit()
 
-    # Envia email (LINK HARDCODED PARA LOCALHOST/FRONTEND POR ENQUANTO)
-    # No futuro, pegar base_url de settings
     link = f"{SETTINGS.FRONTEND_PUBLIC_URL}/reset-password?token={token}"
     send_password_reset_email(data.email, link)
 
@@ -139,13 +186,15 @@ async def forgot_password(
 
 
 @router.post("/reset-password")
+# <rbac>
+@public_route  # fluxo de recuperação de senha é aberto
+# </rbac>
 async def reset_password(
     data: ResetPasswordRequest, session: AsyncSessionDep
 ) -> dict[str, str]:
     """
     Redefine a senha usando um token válido.
     """
-    # Busca token
     result = await session.exec(
         select(PasswordReset).where(
             PasswordReset.token == data.token,
@@ -161,24 +210,20 @@ async def reset_password(
             detail="Token inválido ou expirado",
         )
 
-    # Busca usuário
     user_result = await session.exec(
         select(User).where(User.email == reset_entry.email)
     )
     user = user_result.first()
 
     if not user:
-        # Isso seria estranho (token existe mas usuário não), mas tratamos
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Usuário associado ao token não encontrado",
         )
 
-    # Atualiza senha
     user.password = get_password_hash(data.new_password)
     session.add(user)
 
-    # Marca token como usado
     reset_entry.used_at = datetime.now()
     session.add(reset_entry)
 

@@ -1,7 +1,5 @@
-from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
-
-load_dotenv()
+from pylogkit import get_logger
 
 
 class Settings(BaseSettings):
@@ -17,6 +15,12 @@ class Settings(BaseSettings):
     SQLITE_DEV: int
     FRONTEND_PUBLIC_URL: str | None = None
 
+    MINIO_USER: str | None = None
+    MINIO_PASSWORD: str | None = None
+    MINIO_URL: str | None = None
+    MINIO_SECURE: bool | None = None
+    MINIO_PUBLIC_URL: str | None = None
+
     # SMTP Settings
     SMTP_HOST: str | None = None
     SMTP_PORT: int | str | None = None
@@ -27,3 +31,5 @@ class Settings(BaseSettings):
 
 
 SETTINGS = Settings()  # pyright: ignore[reportCallIssue]
+
+LOGGER = get_logger("mylogger", level=SETTINGS.LOG_LEVEL)  # pyright: ignore[reportArgumentType]

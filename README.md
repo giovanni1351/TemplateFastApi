@@ -1,6 +1,11 @@
 # FastAPI Template
 
-Template completo para APIs com FastAPI, incluindo sistema de autenticação, painel administrativo personalizado e banco de dados com SQLModel.
+Template completo para APIs com FastAPI, incluindo sistema de autenticação, RBAC (permissões por rota), painel administrativo personalizado e banco de dados com SQLModel.
+
+**Documentação:**
+- [DOCUMENTACAO.md](DOCUMENTACAO.md) — guia de uso: gerenciador, criação de projetos/CRUDs e sistema RBAC
+- [GERENCIADOR_CLI.md](GERENCIADOR_CLI.md) — referência do CLI `gerenciar.py` (pensada para LLMs)
+- [COMANDOS_ALEMBIC.md](COMANDOS_ALEMBIC.md) — comandos de migration
 
 ## Stack Tecnológica
 
@@ -390,6 +395,8 @@ O admin usa autenticação separada via sessão, verificando o campo `is_admin` 
 ## Recursos Incluídos
 
 - ✅ Sistema de usuários com autenticação JWT
+- ✅ RBAC: permissões por rota com grupos, mapeamento automático e tela "Gerenciar Acessos" no admin
+- ✅ Gerenciador de projetos/schemas (`gerenciar.py`): modo interativo + CLI para LLMs
 - ✅ Painel admin personalizado com Tailwind CSS
 - ✅ Migrações de banco com Alembic
 - ✅ Configuração via variáveis de ambiente

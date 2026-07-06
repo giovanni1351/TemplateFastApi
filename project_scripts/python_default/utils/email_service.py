@@ -7,7 +7,7 @@ from email.mime.text import MIMEText
 from typing import Any
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from settings import SETTINGS
+from settings import LOGGER, SETTINGS
 
 MAX_EMAIL_RETRIES = 3
 EMAIL_RETRY_DELAY_SECONDS = 2
@@ -20,6 +20,9 @@ def send_email(
     environment: dict[str, Any],
 ) -> None:
     if not SETTINGS.SMTP_HOST:
+        LOGGER.warning(
+            "Configurações de SMTP (Host) não encontradas. Email não enviado."
+        )
         return
 
     msg = MIMEMultipart()
@@ -36,6 +39,9 @@ def send_email(
     last_error: Exception | None = None
     for attempt in range(1, MAX_EMAIL_RETRIES + 1):
         try:
+            LOGGER.info(
+                f"Conectando ao servidor SMTP: {SETTINGS.SMTP_HOST}:{SETTINGS.SMTP_PORT or 587} (tentativa {attempt}/{MAX_EMAIL_RETRIES})"
+            )
             server = smtplib.SMTP(
                 str(SETTINGS.SMTP_HOST), int(SETTINGS.SMTP_PORT or 587)
             )
@@ -51,18 +57,32 @@ def send_email(
 
             server.sendmail(str(SETTINGS.EMAILS_FROM_EMAIL), email_to, text)
             server.quit()
+            LOGGER.info(f"Email enviado com sucesso para {email_to}")
             return
         except (ConnectionRefusedError, OSError, smtplib.SMTPException) as e:
             last_error = e
             if attempt < MAX_EMAIL_RETRIES:
+                LOGGER.warning(
+                    f"Falha ao enviar email (tentativa {attempt}/{MAX_EMAIL_RETRIES}): {e}. "
+                    f"Reagendando em {EMAIL_RETRY_DELAY_SECONDS}s..."
+                )
                 time.sleep(EMAIL_RETRY_DELAY_SECONDS)
             else:
+                LOGGER.error(
+                    f"Erro ao enviar email após {MAX_EMAIL_RETRIES} tentativas: {e}"
+                )
                 import traceback
 
                 print(traceback.format_exc())
         except Exception as e:
             last_error = e
+            LOGGER.error(f"Erro ao enviar email: {e}")
             return
+
+    if last_error:
+        import traceback
+
+        LOGGER.debug(traceback.format_exc())
 
 
 def render_template(template_name: str, environment: dict[str, Any]) -> str:

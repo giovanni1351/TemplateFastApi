@@ -25,3 +25,4 @@ __all__ = [
 
 LivroRead.model_rebuild()
 PaginaRead.model_rebuild()
+from schemas.produto import Produto  # noqa: F401

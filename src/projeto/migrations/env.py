@@ -77,6 +77,8 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         dialect_opts={"foreign_keys": 1},
+        # necessário para ALTERs de constraint no SQLite (copy-and-move)
+        render_as_batch=True,
     )
     with context.begin_transaction():
         context.run_migrations()
