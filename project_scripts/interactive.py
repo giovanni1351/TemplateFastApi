@@ -16,6 +16,13 @@ from project_scripts.core.editor import (
     remove_field,
     remove_schema,
 )
+from project_scripts.core.celery_setup import CeleryError, add_celery
+from project_scripts.core.docker import (
+    DockerError,
+    compose_status,
+    has_managed_markers,
+    setup_compose,
+)
 from project_scripts.core.fields import (
     TYPE_MAP,
     FieldSpecError,
@@ -30,6 +37,8 @@ from project_scripts.core.superuser import SuperuserError, create_superuser
 
 KNOWN_ERRORS = (
     AnalyzerError,
+    CeleryError,
+    DockerError,
     EditorError,
     FieldSpecError,
     MermaidError,
@@ -125,9 +134,109 @@ def _menu_criar_projeto(base_dir: Path) -> None:
     init_uv = _ask_bool("Rodar uv init + uv add das dependências?", False)
     result = create_project(base_dir, nome, admin=admin, rbac=rbac, init_uv=init_uv)
     print(f"\nProjeto '{result['project']}' criado em {result['path']}")
+
+    pdir = base_dir / "src" / result["project"]
+    if _ask_bool("Configurar o docker-compose agora (postgres/minio/backend)?", False):
+        _configure_docker(base_dir, pdir)
+    if _ask_bool("Adicionar Celery (worker/beat/flower)?", False):
+        _configure_celery(base_dir, pdir)
+
     print("Próximos passos:")
     for step in result["next_steps"]:
         print(f"  - {step}")
+
+
+def _print_result(result: dict) -> None:
+    for c in result.get("created", []):
+        print(f"  - {c}")
+    for w in result.get("warnings", []):
+        print(f"  aviso: {w}")
+    if result.get("next_steps"):
+        print("Próximos passos:")
+        for step in result["next_steps"]:
+            print(f"  - {step}")
+
+
+def _configure_docker(base_dir: Path, pdir: Path) -> None:
+    """Perguntas do docker-compose (postgres, extensões, minio) e geração."""
+    versao = _ask("Versão do postgres (major)", "17")
+    print(
+        "\nExtensões do postgres (separadas por vírgula, vazio para nenhuma)."
+        "\n  exemplos: vector, pg_trgm, unaccent, uuid-ossp, postgis"
+        "\n  obs: vector (pgvector) e postgis trocam a imagem do banco automaticamente"
+    )
+    extensoes = _ask("Extensões", "")
+    minio = _ask_bool("Incluir MinIO (armazenamento de arquivos S3)?", True)
+
+    compose_path = base_dir / "docker-compose.yaml"
+    force = False
+    if compose_path.is_file() and not has_managed_markers(
+        compose_path.read_text(encoding="utf-8")
+    ):
+        force = _ask_bool(
+            "Já existe um docker-compose.yaml não gerenciado. Substituir "
+            "(backup .bak é criado)?",
+            False,
+        )
+        if not force:
+            print("Configuração do docker cancelada.")
+            return
+
+    result = setup_compose(
+        base_dir,
+        pdir.name,
+        postgres_version=versao,
+        extensions=[extensoes] if extensoes else [],
+        minio=minio,
+        force=force,
+    )
+    print(
+        f"\ndocker-compose atualizado: postgres {result['postgres']['version']} "
+        f"(imagem {result['postgres']['image']}), "
+        f"serviços: {', '.join(result['services'])}"
+    )
+    if result["backup"]:
+        print(f"  compose anterior salvo em: {result['backup']}")
+    _print_result(result)
+
+
+def _configure_celery(base_dir: Path, pdir: Path) -> None:
+    """Perguntas do celery (beat/flower/admin) e scaffolding completo."""
+    beat = _ask_bool("Incluir celery beat (tarefas agendadas)?", True)
+    flower = _ask_bool("Incluir flower (painel de monitoramento)?", True)
+    admin_view = True
+    if flower:
+        admin_view = _ask_bool("Embutir o flower dentro do painel admin?", True)
+    add_deps = _ask_bool('Rodar uv add "celery[redis]" flower agora?', False)
+    result = add_celery(
+        base_dir,
+        pdir,
+        beat=beat,
+        flower=flower,
+        admin_view=admin_view,
+        add_deps=add_deps,
+    )
+    print(f"\nCelery adicionado ao projeto {result['project']}:")
+    _print_result(result)
+
+
+def _menu_docker(base_dir: Path, src_dir: Path) -> None:
+    status = compose_status(base_dir)
+    if status["exists"]:
+        print(f"\nServiços atuais em {status['file']}:")
+        for s in status["services"]:
+            print(f"  - {s['name']} ({'gerenciado' if s['managed'] else 'manual'})")
+    pdir = _choose_project(src_dir)
+    if pdir is None:
+        return
+    _configure_docker(base_dir, pdir)
+
+
+def _menu_celery(base_dir: Path, src_dir: Path) -> None:
+    pdir = _choose_project(src_dir)
+    if pdir is None:
+        return
+    _configure_celery(base_dir, pdir)
 
 
 def _menu_criar_schema(src_dir: Path) -> None:
@@ -330,6 +439,8 @@ def run(base_dir: Path) -> None:
             "\n7. Importar diagrama Mermaid (ER) — gera todos os modelos"
             "\n8. Gerar/aplicar migration (alembic)"
             "\n9. Criar superusuário (admin)"
+            "\n10. Configurar docker-compose (postgres, extensões, minio)"
+            "\n11. Adicionar Celery (worker, beat, flower + admin)"
             "\n0. Sair"
         )
         opcao = _ask("O que deseja fazer?")
@@ -342,6 +453,7 @@ def run(base_dir: Path) -> None:
                     print(
                         f"- {name} (admin={'sim' if info['features']['admin'] else 'não'}, "
                         f"rbac={'sim' if info['features']['rbac'] else 'não'}, "
+                        f"celery={'sim' if info['features'].get('celery') else 'não'}, "
                         f"modelos: {', '.join(info['models']) or 'nenhum'})"
                     )
             elif opcao == "3":
@@ -349,8 +461,9 @@ def run(base_dir: Path) -> None:
                 if pdir is not None:
                     info = project_info(pdir)
                     print(f"\nProjeto {info['project']}")
-                    print(f"  admin: {'sim' if info['features']['admin'] else 'não'}")
-                    print(f"  rbac:  {'sim' if info['features']['rbac'] else 'não'}")
+                    print(f"  admin:  {'sim' if info['features']['admin'] else 'não'}")
+                    print(f"  rbac:   {'sim' if info['features']['rbac'] else 'não'}")
+                    print(f"  celery: {'sim' if info['features'].get('celery') else 'não'}")
                     for m in list_models(pdir):
                         _print_model(pdir, m.spec.name)
             elif opcao == "4":
@@ -365,6 +478,10 @@ def run(base_dir: Path) -> None:
                 _menu_migrate(base_dir, src_dir)
             elif opcao == "9":
                 _menu_superusuario(base_dir, src_dir)
+            elif opcao == "10":
+                _menu_docker(base_dir, src_dir)
+            elif opcao == "11":
+                _menu_celery(base_dir, src_dir)
             elif opcao in {"0", "sair", "exit", "q"}:
                 return
         except KNOWN_ERRORS as e:

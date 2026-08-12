@@ -1,0 +1,37 @@
+{% extends "sqladmin/layout.html" %}
+{% from 'sqladmin/_macros.html' import render_form_fields %}
+
+{% block content %}
+<div class="max-w-3xl">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="p-4 sm:p-6 border-b border-gray-200">
+            <h3 class="text-lg sm:text-xl font-semibold text-gray-800">Editar {{ model_view.name }}</h3>
+        </div>
+
+        <form action="{{ model_view._build_url_for('admin:edit', request, obj) }}" method="POST" enctype="multipart/form-data" class="p-4 sm:p-6">
+            {% if error %}
+            <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <div class="space-y-4">
+                {{ render_form_fields(form, form_opts=form_opts) }}
+            </div>
+
+            <div class="mt-8 pt-6 border-t border-gray-200 flex flex-col sm:flex-row sm:flex-wrap gap-3">
+                <a href="{{ url_for('admin:list', identity=model_view.identity) }}" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium text-center">
+                    Cancelar
+                </a>
+                <input type="submit" name="save" value="Salvar" class="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors font-medium shadow-sm cursor-pointer">
+                <input type="submit" name="save" value="Salvar e continuar editando" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium cursor-pointer">
+                {% if model_view.can_create %}
+                {% if model_view.save_as %}
+                <input type="submit" name="save" value="Salvar como novo" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium cursor-pointer">
+                {% endif %}
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

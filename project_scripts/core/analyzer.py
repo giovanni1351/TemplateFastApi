@@ -63,6 +63,7 @@ def project_features(pdir: Path) -> dict:
     return {
         "admin": (pdir / "admin").is_dir(),
         "rbac": (pdir / "utils" / "rbac_router.py").is_file(),
+        "celery": (pdir / "celery_app.py").is_file(),
     }
 
 

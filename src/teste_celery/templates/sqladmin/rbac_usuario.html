@@ -1,0 +1,108 @@
+{% extends "sqladmin/layout.html" %}
+
+{% macro method_badge(method) %}
+{% set colors = {
+    'GET': 'bg-green-100 text-green-700',
+    'POST': 'bg-blue-100 text-blue-700',
+    'PUT': 'bg-amber-100 text-amber-700',
+    'PATCH': 'bg-amber-100 text-amber-700',
+    'DELETE': 'bg-red-100 text-red-700',
+} %}
+<span class="inline-block w-16 text-center px-1.5 py-0.5 rounded text-xs font-bold {{ colors.get(method, 'bg-gray-100 text-gray-700') }}">{{ method }}</span>
+{% endmacro %}
+
+{% block content %}
+{% if user.is_admin %}
+<div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm flex items-center gap-2">
+    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+    </svg>
+    Este usuário é <strong>administrador</strong> e tem acesso a todas as rotas, independente das seleções abaixo.
+</div>
+{% endif %}
+
+<form method="POST" class="max-w-5xl">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+        <div class="p-4 sm:p-6 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">Grupos</h3>
+            <p class="text-sm text-gray-500 mt-1">O usuário herda todas as rotas dos grupos marcados</p>
+        </div>
+        {% if groups %}
+        <div class="divide-y divide-gray-100">
+            {% for g in groups %}
+            <label class="flex items-center gap-3 px-4 sm:px-6 py-3 hover:bg-gray-50 cursor-pointer select-none">
+                <input type="checkbox" name="groups" value="{{ g.id }}" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" {% if g.id in group_ids %}checked{% endif %}>
+                <div class="min-w-0">
+                    <p class="text-sm font-medium text-gray-800">{{ g.name }}</p>
+                    {% if g.description %}
+                    <p class="text-xs text-gray-500 truncate">{{ g.description }}</p>
+                    {% endif %}
+                </div>
+                <span class="ml-auto px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium flex-shrink-0">{{ g.permissions | length }} rota{{ 's' if g.permissions | length != 1 }}</span>
+            </label>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="p-6 text-center text-gray-500 text-sm">
+            Nenhum grupo criado. <a href="{{ url_for('admin:rbac-grupo-novo') }}" class="text-primary hover:underline">Criar o primeiro grupo</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+        <div class="p-4 sm:p-6 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">Permissões Diretas</h3>
+            <p class="text-sm text-gray-500 mt-1">Rotas atribuídas individualmente a este usuário, além das herdadas de grupos</p>
+        </div>
+        <div class="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {% for section, perms in grouped_permissions.items() %}
+            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                    <span class="font-semibold text-gray-700 text-sm uppercase tracking-wide">{{ section }}</span>
+                </div>
+                <div class="divide-y divide-gray-100">
+                    {% for perm in perms %}
+                    <label class="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer select-none">
+                        <input type="checkbox" name="permissions" value="{{ perm.id }}" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" {% if perm.id in direct_ids %}checked{% endif %}>
+                        {{ method_badge(perm.method) }}
+                        <span class="text-sm text-gray-700 font-mono truncate">{{ perm.path }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+        <div class="p-4 sm:p-6 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">Acesso Efetivo Atual</h3>
+            <p class="text-sm text-gray-500 mt-1">União das permissões diretas e herdadas de grupos (antes das alterações deste formulário)</p>
+        </div>
+        <div class="p-4 sm:p-6">
+            {% if user.is_admin %}
+            <p class="text-sm text-gray-600">Acesso total — administrador.</p>
+            {% elif effective %}
+            <div class="flex flex-wrap gap-2">
+                {% for perm in effective %}
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-full text-xs font-mono text-gray-700">
+                    {{ method_badge(perm.method) }} {{ perm.path }}
+                </span>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-500">Este usuário ainda não tem acesso a nenhuma rota protegida.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="flex flex-col sm:flex-row sm:flex-wrap gap-3">
+        <a href="{{ url_for('admin:rbac-acessos') }}" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium text-center">
+            Cancelar
+        </a>
+        <button type="submit" class="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors font-medium shadow-sm">
+            Salvar Acessos
+        </button>
+    </div>
+</form>
+{% endblock %}

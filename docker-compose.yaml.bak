@@ -1,0 +1,64 @@
+services:
+  # --- PostgreSQL ---
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: app-postgres-template
+    restart: always
+    environment:
+      POSTGRES_USER: db_user
+      POSTGRES_PASSWORD: senha_secreta
+      POSTGRES_DB: app_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # --- MinIO ---
+  minio:
+    image: minio/minio
+    container_name: app-minio-template
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-senha_secreta}
+    ports:
+      - "9000:9000" # API S3
+      - "9001:9001" # Interface Web Console
+    volumes:
+      - minio_data:/data
+
+  # --- Backend (FastAPI) ---
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-backend-template
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    # depends_on:
+    # - postgres
+    # - minio
+
+#   # --- Frontend (React/Vite + Nginx) ---
+#   frontend:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile.frontend
+#       args:
+#         VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+#         VITE_LOGO_URL: ${VITE_LOGO_URL:-}
+#         VITE_BANNER_URL: ${VITE_BANNER_URL:-}
+#     container_name: app-frontend-oliveira-carvalho
+#     restart: always
+#     ports:
+#       - "80:80"
+#     depends_on:
+#       - backend
+
+volumes:
+  postgres_data:
+  minio_data:

@@ -1,22 +1,28 @@
+# Gerado pelo gerenciador do template. Edite via `python gerenciar.py` ou manualmente.
+# Blocos entre '# <servico:x>'/'# <volume:x>' são regenerados pelo gerenciador;
+# serviços adicionados manualmente fora dos marcadores são preservados.
+# As variáveis ${...} vêm do arquivo .env na raiz do repositório.
+
 services:
-  # --- PostgreSQL ---
+  # <servico:postgres>
   postgres:
-    image: pgvector/pgvector:pg16
-    container_name: app-postgres-template
+    image: postgres:17
+    container_name: teste_celery-postgres
     restart: always
     environment:
-      POSTGRES_USER: db_user
-      POSTGRES_PASSWORD: senha_secreta
-      POSTGRES_DB: app_db
+      POSTGRES_USER: ${DB_USER:-db_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-senha_secreta}
+      POSTGRES_DB: ${DB_DATABASE:-app_db}
     ports:
-      - "5433:5432"
+      - "${DB_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+  # </servico:postgres>
 
-  # --- MinIO ---
+  # <servico:minio>
   minio:
     image: minio/minio
-    container_name: app-minio-template
+    container_name: teste_celery-minio
     restart: always
     command: server /data --console-address ":9001"
     environment:
@@ -24,41 +30,126 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-senha_secreta}
     ports:
       - "9000:9000" # API S3
-      - "9001:9001" # Interface Web Console
+      - "9001:9001" # Console web
     volumes:
       - minio_data:/data
+  # </servico:minio>
 
-  # --- Backend (FastAPI) ---
+  # <servico:backend>
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: app-backend-template
+    container_name: teste_celery-backend
     restart: always
+    command: /app/.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000 --workers 3 --app-dir src/teste_celery
     env_file:
       - .env
+    environment:
+      # dentro da rede do compose o banco é o serviço 'postgres'
+      SQLITE_DEV: "0"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      MINIO_URL: minio:9000
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
     ports:
       - "8000:8000"
-    # depends_on:
-    # - postgres
-    # - minio
+    depends_on:
+      - postgres
+      - minio
+      - redis
+  # </servico:backend>
 
-#   # --- Frontend (React/Vite + Nginx) ---
-#   frontend:
-#     build:
-#       context: .
-#       dockerfile: Dockerfile.frontend
-#       args:
-#         VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
-#         VITE_LOGO_URL: ${VITE_LOGO_URL:-}
-#         VITE_BANNER_URL: ${VITE_BANNER_URL:-}
-#     container_name: app-frontend-oliveira-carvalho
-#     restart: always
-#     ports:
-#       - "80:80"
-#     depends_on:
-#       - backend
+  # <servico:redis>
+  redis:
+    image: redis:7-alpine
+    container_name: teste_celery-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+  # </servico:redis>
+
+  # <servico:celery-worker>
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: teste_celery-celery-worker
+    restart: always
+    working_dir: /app/src/teste_celery
+    command: /app/.venv/bin/celery -A celery_app worker --loglevel=info
+    env_file:
+      - .env
+    environment:
+      SQLITE_DEV: "0"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    depends_on:
+      - redis
+      - postgres
+  # </servico:celery-worker>
+
+  # <servico:celery-beat>
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: teste_celery-celery-beat
+    restart: always
+    working_dir: /app/src/teste_celery
+    command: /app/.venv/bin/celery -A celery_app beat --loglevel=info
+    env_file:
+      - .env
+    environment:
+      SQLITE_DEV: "0"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    depends_on:
+      - redis
+      - postgres
+  # </servico:celery-beat>
+
+  # <servico:flower>
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: teste_celery-flower
+    restart: always
+    working_dir: /app/src/teste_celery
+    command: /app/.venv/bin/celery -A celery_app flower --address=0.0.0.0 --port=5555
+    env_file:
+      - .env
+    environment:
+      SQLITE_DEV: "0"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - postgres
+      - celery-worker
+  # </servico:flower>
 
 volumes:
+  # <volume:postgres_data>
   postgres_data:
+  # </volume:postgres_data>
+
+  # <volume:minio_data>
   minio_data:
+  # </volume:minio_data>
+
+  # <volume:redis_data>
+  redis_data:
+  # </volume:redis_data>

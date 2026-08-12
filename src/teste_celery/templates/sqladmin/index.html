@@ -1,0 +1,24 @@
+{% extends "sqladmin/layout.html" %}
+{% from 'sqladmin/_macros.html' import render_icon %}
+
+{% block content %}
+<div class="space-y-4 sm:space-y-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+        {% for view in admin.views %}
+        {% if view.is_model %}
+        <a href="{{ url_for('admin:list', identity=view.identity) }}" class="group bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-md hover:border-primary/30 transition-all">
+            <div class="flex items-center gap-3 sm:gap-4">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0 text-primary">
+                    {{ render_icon(view.icon, 'w-5 h-5 sm:w-6 sm:h-6', 'text-lg sm:text-xl') }}
+                </div>
+                <div class="min-w-0">
+                    <h3 class="font-semibold text-gray-800 group-hover:text-primary transition-colors truncate">{{ view.name_plural }}</h3>
+                    <p class="text-sm text-gray-500">Gerenciar registros</p>
+                </div>
+            </div>
+        </a>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

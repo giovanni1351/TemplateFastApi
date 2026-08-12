@@ -30,6 +30,8 @@ from project_scripts.core.fields import (
     parse_field_spec,
     validate_model_name,
 )
+from project_scripts.core.celery_setup import CeleryError, add_celery
+from project_scripts.core.docker import DockerError, compose_status, setup_compose
 from project_scripts.core.mermaid import MermaidError, apply_mermaid
 from project_scripts.core.migrations import MigrationError, run_migrate
 from project_scripts.core.project import ProjectError, create_project
@@ -37,6 +39,8 @@ from project_scripts.core.superuser import SuperuserError, create_superuser
 
 KNOWN_ERRORS = (
     AnalyzerError,
+    CeleryError,
+    DockerError,
     EditorError,
     FieldSpecError,
     MermaidError,
@@ -117,6 +121,11 @@ def build_parser(base_dir: Path) -> argparse.ArgumentParser:
         help="não incluir o sistema RBAC (permissões por rota)",
     )
     p.add_argument("--init-uv", action="store_true", help="roda uv init + uv add das dependências")
+    p.add_argument(
+        "--celery",
+        action="store_true",
+        help="já adiciona celery (worker/beat/flower) ao projeto e ao docker-compose",
+    )
     p.add_argument("--force", action="store_true", help="sobrescreve se o projeto já existir")
     add_json(p)
 
@@ -210,6 +219,61 @@ def build_parser(base_dir: Path) -> argparse.ArgumentParser:
     add_json(p)
 
     p = sub.add_parser(
+        "docker-setup",
+        help="gera/atualiza o docker-compose do repositório (postgres, minio, backend)",
+    )
+    p.add_argument("project", help="projeto que o serviço backend vai rodar")
+    p.add_argument(
+        "--postgres-version",
+        default="17",
+        metavar="N",
+        help="versão major do postgres (ex: 15, 16, 17). Padrão: 17",
+    )
+    p.add_argument(
+        "--extension",
+        action="append",
+        default=[],
+        metavar="EXT",
+        help=(
+            "extensão do postgres (repetível ou separada por vírgula). "
+            "Ex: vector, pg_trgm, unaccent, uuid-ossp, postgis. "
+            "vector/postgis trocam a imagem do banco automaticamente"
+        ),
+    )
+    p.add_argument("--no-minio", action="store_true", help="não incluir o serviço minio")
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="substitui um docker-compose não gerenciado pelo gerenciador (cria .bak)",
+    )
+    add_json(p)
+
+    p = sub.add_parser(
+        "add-celery",
+        help="adiciona celery (worker, beat, flower) ao projeto, ao docker-compose e ao admin",
+    )
+    p.add_argument("project")
+    p.add_argument("--no-beat", action="store_true", help="sem o celery beat (tarefas agendadas)")
+    p.add_argument("--no-flower", action="store_true", help="sem o flower (monitoramento)")
+    p.add_argument(
+        "--no-admin-view",
+        action="store_true",
+        help="não embutir o painel do flower dentro do admin",
+    )
+    p.add_argument(
+        "--add-deps",
+        action="store_true",
+        help='roda uv add "celery[redis]" flower na raiz',
+    )
+    p.add_argument(
+        "--force", action="store_true", help="regenera os arquivos do celery se já existirem"
+    )
+    add_json(p)
+
+    p = sub.add_parser("docker-status", help="lista os serviços do docker-compose atual")
+    add_json(p)
+
+    p = sub.add_parser(
         "create-superuser",
         help="cria um superusuário (admin) no banco do projeto (sqlite ou postgres)",
     )
@@ -235,6 +299,7 @@ def main(base_dir: Path, argv: list[str] | None = None) -> int:
             human = "\n".join(
                 f"- {info['project']} (admin={'sim' if info['features']['admin'] else 'não'}, "
                 f"rbac={'sim' if info['features']['rbac'] else 'não'}, "
+                f"celery={'sim' if info['features'].get('celery') else 'não'}, "
                 f"modelos: {', '.join(info['models']) or 'nenhum'})"
                 for info in data
             ) or "Nenhum projeto em src/"
@@ -254,8 +319,21 @@ def main(base_dir: Path, argv: list[str] | None = None) -> int:
                 f"Projeto '{result['project']}' criado em {result['path']}\n"
                 f"  admin: {'sim' if result['features']['admin'] else 'não'} | "
                 f"rbac: {'sim' if result['features']['rbac'] else 'não'} | "
-                f"{result['files']} arquivos\nPróximos passos:\n"
-                + "\n".join(f"  - {s}" for s in result["next_steps"])
+                f"{result['files']} arquivos"
+            )
+            if args.celery:
+                celery_result = add_celery(base_dir, src_dir / result["project"])
+                result["celery"] = celery_result
+                result["next_steps"] = celery_result["next_steps"] + result["next_steps"]
+                human += (
+                    "\nCelery adicionado (serviços: "
+                    + ", ".join(celery_result["compose_services"])
+                    + ")"
+                )
+                for w in celery_result["warnings"]:
+                    human += f"\n  aviso: {w}"
+            human += "\nPróximos passos:\n" + "\n".join(
+                f"  - {s}" for s in result["next_steps"]
             )
             _emit(result, as_json, human)
             return 0
@@ -264,8 +342,9 @@ def main(base_dir: Path, argv: list[str] | None = None) -> int:
             data = project_info(project_dir(src_dir, args.project))
             human = (
                 f"Projeto: {data['project']}\n"
-                f"  admin: {'sim' if data['features']['admin'] else 'não'}\n"
-                f"  rbac:  {'sim' if data['features']['rbac'] else 'não'}\n"
+                f"  admin:  {'sim' if data['features']['admin'] else 'não'}\n"
+                f"  rbac:   {'sim' if data['features']['rbac'] else 'não'}\n"
+                f"  celery: {'sim' if data['features'].get('celery') else 'não'}\n"
                 f"  modelos: {', '.join(data['models']) or 'nenhum'}\n"
                 f"  rotas:   {', '.join(data['routes']) or 'nenhuma'}"
             )
@@ -404,6 +483,70 @@ def main(base_dir: Path, argv: list[str] | None = None) -> int:
                 human = "Nenhuma mudança de schema detectada — nada a migrar"
             else:
                 human = f"Migration gerada e aplicada: {result['revision_file']}"
+            _emit(result, as_json, human)
+            return 0
+
+        if args.command == "docker-setup":
+            pdir = project_dir(src_dir, args.project)
+            result = setup_compose(
+                base_dir,
+                pdir.name,
+                postgres_version=args.postgres_version,
+                extensions=args.extension,
+                minio=not args.no_minio,
+                force=args.force,
+            )
+            linhas = [
+                f"docker-compose atualizado: {result['file']}",
+                f"  postgres {result['postgres']['version']} (imagem {result['postgres']['image']}) | "
+                f"extensões: {', '.join(result['postgres']['extensions']) or 'nenhuma'}",
+                f"  serviços: {', '.join(result['services'])}",
+            ]
+            if result["backup"]:
+                linhas.append(f"  compose anterior salvo em: {result['backup']}")
+            linhas.extend(f"  aviso: {w}" for w in result["warnings"])
+            linhas.append("Próximos passos:")
+            linhas.extend(f"  - {s}" for s in result["next_steps"])
+            _emit(result, as_json, "\n".join(linhas))
+            return 0
+
+        if args.command == "add-celery":
+            pdir = project_dir(src_dir, args.project)
+            result = add_celery(
+                base_dir,
+                pdir,
+                beat=not args.no_beat,
+                flower=not args.no_flower,
+                admin_view=not args.no_admin_view,
+                add_deps=args.add_deps,
+                force=args.force,
+            )
+            linhas = [f"Celery adicionado ao projeto {result['project']}:"]
+            linhas.extend(f"  - {c}" for c in result["created"])
+            linhas.extend(f"  aviso: {w}" for w in result["warnings"])
+            linhas.append("Próximos passos:")
+            linhas.extend(f"  - {s}" for s in result["next_steps"])
+            _emit(result, as_json, "\n".join(linhas))
+            return 0
+
+        if args.command == "docker-status":
+            result = compose_status(base_dir)
+            if not result["exists"]:
+                human = (
+                    f"{result['file']} não existe — crie com: "
+                    "python gerenciar.py docker-setup <projeto>"
+                )
+            else:
+                linhas = [
+                    f"{result['file']} "
+                    f"(projeto: {result.get('project') or '?'}, "
+                    f"{'gerenciado' if result['managed'] else 'NÃO gerenciado'})"
+                ]
+                linhas.extend(
+                    f"  - {s['name']} ({'gerenciado' if s['managed'] else 'manual'})"
+                    for s in result["services"]
+                )
+                human = "\n".join(linhas)
             _emit(result, as_json, human)
             return 0
 

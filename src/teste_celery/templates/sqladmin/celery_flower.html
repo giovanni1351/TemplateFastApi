@@ -1,0 +1,23 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="p-4 sm:p-6 border-b border-gray-200 flex items-center justify-between flex-wrap gap-3">
+        <div>
+            <h3 class="text-lg font-semibold text-gray-800">Flower — monitoramento do Celery</h3>
+            <p class="text-sm text-gray-500 mt-1">Workers, filas e tasks em tempo real</p>
+        </div>
+        <a href="{{ flower_url }}" target="_blank" rel="noopener"
+           class="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors font-medium text-sm">
+            Abrir em nova aba
+        </a>
+    </div>
+    <iframe src="{{ flower_url }}" class="w-full border-0"
+            style="height: calc(100vh - 240px); min-height: 500px;" title="Flower"></iframe>
+</div>
+<p class="text-xs text-gray-400 mt-3">
+    Se o painel não carregar, verifique se o serviço flower está no ar
+    (docker compose up -d flower) e se FLOWER_URL no .env aponta para uma URL
+    acessível pelo seu navegador.
+</p>
+{% endblock %}

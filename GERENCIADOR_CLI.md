@@ -33,6 +33,9 @@ uv run python gerenciar.py <comando> [argumentos] [--json]
 | `from-mermaid PROJETO ARQUIVO` | Lê um diagrama Mermaid `erDiagram` e gera todos os modelos, FKs, relationships e rotas |
 | `migrate PROJETO [-m MSG]` | Gera (autogenerate) e aplica a migration do alembic |
 | `create-superuser PROJETO --nome --email --password` | Cria um usuário admin no banco do projeto (SQLite ou PostgreSQL) |
+| `docker-setup PROJETO` | Gera/atualiza o `docker-compose.yaml` (postgres com versão/extensões, minio, backend) |
+| `add-celery PROJETO` | Adiciona Celery (worker, beat, flower) ao projeto, ao compose e ao painel admin |
+| `docker-status` | Lista os serviços do `docker-compose.yaml` (gerenciados e manuais) |
 
 Os comandos que alteram schemas (`create-schema`, `add-field`, `remove-field`,
 `remove-schema`, `from-mermaid`) aceitam **`--migrate`** para gerar e aplicar a
@@ -79,7 +82,7 @@ Exemplos:
 
 ## Comandos em detalhe
 
-### `create-project NOME [--no-admin] [--no-rbac] [--init-uv] [--force] [--json]`
+### `create-project NOME [--no-admin] [--no-rbac] [--init-uv] [--celery] [--force] [--json]`
 
 Cria `src/<nome>/` completo a partir do template: FastAPI + SQLModel + auth
 JWT + rotas de usuário/login/recuperação de senha.
@@ -91,6 +94,8 @@ JWT + rotas de usuário/login/recuperação de senha.
   passam a usar `UserByRole` de admin-only).
 - **`--init-uv`** — roda `uv init` + `uv add` das dependências na raiz
   (só faz sentido em repositório novo).
+- **`--celery`** — já roda o `add-celery` em seguida: worker/beat/flower no
+  docker-compose e painel do Flower embutido no admin (veja `add-celery`).
 - **`--force`** — sobrescreve um projeto existente com o mesmo nome.
 
 Com RBAC ligado o projeto ganha: tabelas `Permission`/`PermissionGroup`,
@@ -272,6 +277,83 @@ uv run python gerenciar.py create-superuser loja \
 
 Saída: `{"status": "criado" | "atualizado", "id", "email", "database", "project"}`
 
+### `docker-setup PROJETO [--postgres-version N] [--extension EXT ...] [--no-minio] [--force] [--json]`
+
+Gera (ou atualiza) o `docker-compose.yaml` da raiz com **postgres**, **minio**
+(opcional) e o **backend** do projeto informado. O arquivo é dividido em blocos
+marcados (`# <servico:postgres> ... # </servico:postgres>`): esses blocos são
+regenerados pelo gerenciador a cada execução (idempotente), e **serviços
+adicionados manualmente fora dos marcadores são preservados**.
+
+- **`--postgres-version N`** — versão major do postgres (ex: `15`, `16`, `17`;
+  padrão `17`).
+- **`--extension EXT`** — extensão do postgres (repetível ou separada por
+  vírgula). As extensões viram um `CREATE EXTENSION IF NOT EXISTS` em
+  `docker/postgres-init.sql`, executado na primeira inicialização do volume.
+  Casos especiais que trocam a imagem do banco automaticamente:
+  `vector`/`pgvector` → `pgvector/pgvector:pgN`; `postgis` → `postgis/postgis:N-3.5`
+  (as duas juntas não são suportadas — exigem imagem customizada).
+- **`--no-minio`** — remove/não inclui o serviço minio.
+- **`--force`** — se já existir um `docker-compose.yaml` **não gerenciado**
+  (sem marcadores), substitui e salva um backup `.bak`.
+
+As credenciais/portas vêm do `.env` da raiz via interpolação
+(`${DB_USER:-db_user}`, `${DB_PORT:-5433}`...). Dentro da rede do compose o
+backend já é configurado com `DB_HOST=postgres`, `DB_PORT=5432` e
+`SQLITE_DEV=0` — o `.env` continua valendo para rodar fora do docker.
+
+```bash
+uv run python gerenciar.py docker-setup loja --postgres-version 17 --extension vector,pg_trgm --json
+```
+
+Saída: `{"project", "file", "backup", "postgres": {"version", "image", "extensions"}, "minio", "celery", "services", "warnings", "next_steps"}`
+
+### `add-celery PROJETO [--no-beat] [--no-flower] [--no-admin-view] [--add-deps] [--force] [--json]`
+
+Deixa o Celery pré-configurado de ponta a ponta:
+
+1. `src/<projeto>/celery_app.py` (instância do Celery lendo
+   `CELERY_BROKER_URL`/`CELERY_RESULT_BACKEND` do settings, com
+   `beat_schedule` de exemplo) e `src/<projeto>/tasks.py` (task de exemplo);
+2. campos `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` e `FLOWER_URL` no
+   `settings.py` do projeto + bloco correspondente no `.env`/`.env.example`;
+3. serviços **redis**, **celery-worker**, **celery-beat** e **flower** no
+   `docker-compose.yaml` (cria a base com padrões se o compose não existir) e
+   atualiza o backend para enxergar o broker;
+4. painel do **Flower embutido no admin** em `/admin/celery` (item "Celery
+   (Flower)" na sidebar): view `admin/admin_celery.py` + template com iframe +
+   liberação do `frame-src` no CSP do admin.
+
+- **`--no-beat`** / **`--no-flower`** — pula o serviço correspondente.
+- **`--no-admin-view`** — não embute o Flower no admin (fica só na porta 5555).
+- **`--add-deps`** — roda `uv add "celery[redis]" flower` na raiz (sem isso, o
+  `next_steps` lembra de instalar — as imagens docker precisam das dependências
+  no `pyproject.toml`).
+- **`--force`** — regenera `celery_app.py`/`tasks.py` se já existirem.
+
+```bash
+uv run python gerenciar.py add-celery loja --add-deps --json
+```
+
+Para rodar fora do docker (dev): `docker compose up -d redis` e, a partir de
+`src/<projeto>`: `uv run celery -A celery_app worker --loglevel=info`
+(no Windows adicione `--pool=solo`); o beat e o flower seguem o mesmo padrão
+(`... beat` / `... flower`).
+
+Saída: `{"project", "beat", "flower", "flower_admin", "deps_installed", "compose_services", "created", "warnings", "next_steps"}`
+
+### `docker-status [--json]`
+
+Mostra o estado do `docker-compose.yaml`: para qual projeto o backend está
+configurado e cada serviço com a marcação `gerenciado` (regenerável pelo CLI)
+ou `manual` (adicionado à mão, preservado pelo gerenciador).
+
+```bash
+uv run python gerenciar.py docker-status --json
+```
+
+Saída: `{"file", "exists", "managed", "project", "services": [{"name", "managed"}]}`
+
 ---
 
 ## Fluxo típico para uma LLM gerar um projeto completo
@@ -292,8 +374,13 @@ uv run python gerenciar.py from-mermaid loja diagrama.mmd --migrate --json
 uv run python gerenciar.py create-superuser loja \
   --nome Admin --email admin@loja.com --password s3nh4 --json
 
-# 5. conferir
+# 5. infraestrutura (opcional): docker-compose + celery
+uv run python gerenciar.py docker-setup loja --postgres-version 17 --extension vector --json
+uv run python gerenciar.py add-celery loja --add-deps --json
+
+# 6. conferir
 uv run python gerenciar.py inspect loja --json
+uv run python gerenciar.py docker-status --json
 ```
 
 ### Opção B — modelo a modelo
